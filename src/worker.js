@@ -1,4 +1,5 @@
 import { brazilNow, weekday, nextType, validTime, validMonth } from "./logic.js";
+import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -7,23 +8,38 @@ const headers = {
   "X-Frame-Options": "DENY"
 };
 
-function json(data, status = 200) {
-  return Response.json(data, { status, headers });
+function json(data, status = 200, extraHeaders = {}) {
+  return Response.json(data, { status, headers: { ...headers, ...extraHeaders } });
 }
 
-async function keyMatches(request, secret) {
-  const sent = request.headers.get("Authorization") || "";
-  if (!sent.startsWith("Bearer ") || sent.length > 300) return false;
-  const encoder = new TextEncoder();
-  const [a, b] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(sent.slice(7))),
-    crypto.subtle.digest("SHA-256", encoder.encode(secret))
-  ]);
-  const aa = new Uint8Array(a);
-  const bb = new Uint8Array(b);
-  let difference = 0;
-  for (let i = 0; i < aa.length; i++) difference |= aa[i] ^ bb[i];
-  return difference === 0;
+function acceptedPostOrigin(request) {
+  const origin = request.headers.get("Origin");
+  const site = request.headers.get("Sec-Fetch-Site");
+  return (!origin || origin === new URL(request.url).origin) && site !== "cross-site";
+}
+
+async function login(request, env) {
+  if (!env.LOGIN_LIMITER) return json({ error: "Limite de tentativas indisponível." }, 503);
+  const ip = request.headers.get("CF-Connecting-IP") || "local";
+  const limit = await env.LOGIN_LIMITER.limit({ key: "login:" + ip });
+  if (!limit.success) return json({ error: "Muitas tentativas. Aguarde um minuto." }, 429, { "Retry-After": "60" });
+
+  if (!request.headers.get("Content-Type")?.toLowerCase().startsWith("application/json")) {
+    return json({ error: "Envie usuário e senha em JSON." }, 415);
+  }
+  if (Number(request.headers.get("Content-Length") || 0) > 2048) return json({ error: "Dados muito longos." }, 413);
+  let input;
+  try { input = await request.json(); } catch { return json({ error: "Dados inválidos." }, 400); }
+  const username = input?.usuario;
+  const password = input?.senha;
+  if (typeof username !== "string" || username.length > 80 || typeof password !== "string" || password.length > 256) {
+    return json({ error: "Usuário ou senha inválidos." }, 401);
+  }
+  if (!(await checkCredentials(username, password, env))) {
+    return json({ error: "Usuário ou senha inválidos." }, 401);
+  }
+  const token = await createSession(env);
+  return json({ ok: true, usuario: env.PONTO_USERNAME }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
 async function today(env) {
@@ -50,8 +66,6 @@ async function register(request, env) {
   if (!request.headers.get("Content-Type")?.toLowerCase().startsWith("application/json")) {
     return json({ error: "Envie JSON." }, 415);
   }
-  const origin = request.headers.get("Origin");
-  if (origin && origin !== new URL(request.url).origin) return json({ error: "Origem não permitida." }, 403);
   let body;
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400); }
   const time = body?.horario;
@@ -114,10 +128,19 @@ export default {
       return new Response(response.body, { status: response.status, headers: responseHeaders });
     }
     if (request.method !== "GET" && request.method !== "POST") return json({ error: "Método não permitido." }, 405);
-    if (!env.PONTO_API_KEY || env.PONTO_API_KEY.length < 32) return json({ error: "A chave de segurança do Worker não foi configurada." }, 503);
-    if (!env.DB) return json({ error: "Banco não configurado." }, 503);
-    if (!(await keyMatches(request, env.PONTO_API_KEY))) return json({ error: "Chave de acesso inválida." }, 401);
+    if (request.method === "POST" && !acceptedPostOrigin(request)) return json({ error: "Origem não permitida." }, 403);
+    if (!authConfigured(env)) return json({ error: "Login ainda não configurado no Worker." }, 503);
     try {
+      if (url.pathname === "/api/login" && request.method === "POST") return await login(request, env);
+      if (url.pathname === "/api/sessao" && request.method === "GET") {
+        return await verifySession(request, env) ? json({ autenticado: true, usuario: env.PONTO_USERNAME }) :
+          json({ error: "Sessão expirada ou inválida." }, 401);
+      }
+      if (url.pathname === "/api/sair" && request.method === "POST") {
+        return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() });
+      }
+      if (!(await verifySession(request, env))) return json({ error: "Sessão expirada ou inválida." }, 401);
+      if (!env.DB) return json({ error: "Banco não configurado." }, 503);
       if (url.pathname === "/api/hoje" && request.method === "GET") return json(await today(env));
       if (url.pathname === "/api/pontos" && request.method === "POST") return await register(request, env);
       if (url.pathname === "/api/historico" && request.method === "GET") return await history(request, env);
