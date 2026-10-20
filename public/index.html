@@ -17,6 +17,9 @@
     <div class="header-inner">
       <div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
       <div class="brand"><strong>Meus Pontos</strong><span>Controle de jornada</span></div>
+      <button class="icon-btn logout" type="button" id="logout" title="Sair" aria-label="Sair" hidden>
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="m16 16 4-4-4-4M20 12H9"/></svg>
+      </button>
       <button class="icon-btn refresh" type="button" id="refresh" title="Atualizar dados" aria-label="Atualizar dados">
         <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg>
       </button>
@@ -87,9 +90,11 @@
     <form class="gate-card" id="gate-form">
       <div class="gate-logo"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
       <h2>Acessar Meus Pontos</h2>
-      <p>Informe sua chave pessoal para consultar e registrar os pontos.</p>
-      <label for="access-key">Chave de acesso</label>
-      <input id="access-key" name="key" type="password" required autocomplete="off" placeholder="Sua chave de acesso">
+      <p>Entre com seu usuário e senha para acessar seu controle de ponto.</p>
+      <label for="login-user">Usuário</label>
+      <input id="login-user" name="username" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="Seu usuário">
+      <label for="login-password">Senha</label>
+      <input id="login-password" name="password" type="password" required autocomplete="current-password" placeholder="Sua senha">
       <button type="submit" class="primary" id="enter">Entrar</button>
       <span id="gate-error" role="alert"></span>
     </form>
