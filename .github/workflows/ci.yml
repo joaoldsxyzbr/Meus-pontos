@@ -1,0 +1,25 @@
+name: Validar PWA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testar JavaScript sem dependências
+        run: npm test
+      - name: Verificar sintaxe
+        run: |
+          node --check src/worker.js
+          node --check public/app.js
+          node --check public/sw.js
