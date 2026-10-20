@@ -23,7 +23,7 @@ O aplicativo usa o D1 `meus-pontos` já existente. **Nenhuma migração é neces
 
 ## Configurar o primeiro usuário
 
-**Antes de publicar**, execute localmente (Node.js instalado):
+Para preparar as credenciais, execute localmente (Node.js instalado):
 
 ```sh
 node scripts/criar-login.mjs joaoldsxyzbr
@@ -35,7 +35,7 @@ O comando imprime uma **senha aleatória forte** para você guardar e os três v
 - `PONTO_PASSWORD_RECORD` — hash PBKDF2-SHA256 da senha com salt individual e 100.000 iterações.
 - `PONTO_SESSION_SECRET` — segredo aleatório de 256 bits que assina sessões.
 
-Pelo painel da Cloudflare, configure os três secrets nas variáveis/segredos do Worker. Alternativamente, pelo Wrangler (CLI **oficial da Cloudflare**, exige autenticação na conta):
+**Primeiro publique o Worker** sem credenciais. Ele ficará em modo seguro: mostrará o login, mas a API responderá HTTP 503 até os secrets serem configurados.\n\n```sh\nnpx wrangler@latest login\nnpx wrangler@latest deploy\n```\n\nDepois, no painel da Cloudflare, configure os três secrets nas variáveis/segredos do Worker. Alternativamente, pelo Wrangler (CLI **oficial da Cloudflare**, exige autenticação na conta):
 
 ```sh
 npx wrangler@latest secret put PONTO_USERNAME
@@ -45,14 +45,7 @@ npx wrangler@latest secret put PONTO_SESSION_SECRET
 
 Cole o respectivo valor no prompt de cada comando. Não informe a senha inicial quando solicitarem `PONTO_PASSWORD_RECORD`: informe o registro de hash gerado pelo script.
 
-## Publicar
-
-```sh
-npx wrangler@latest login
-npx wrangler@latest deploy
-```
-
-Use a conta Cloudflare que hospeda o D1 `meus-pontos`. O deploy requer todos os secrets. A interface estará disponível no HTTPS do Worker.
+## Publicação\n\nUse a conta Cloudflare que hospeda o D1 `meus-pontos`. Depois de publicar e configurar os três secrets, abra o endereço HTTPS do Worker. Apenas o usuário e a senha gerados permitirão acesso.\n\nSem os secrets necessários, a API permanece indisponível (HTTP 503) e **não expõe os registros**.
 
 Para trocar a senha, gere novas credenciais com o script e atualize **os três secrets**. A rotação de `PONTO_SESSION_SECRET` invalida as sessões antigas.
 
