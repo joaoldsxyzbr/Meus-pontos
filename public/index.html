@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c7068">
+  <meta name="description" content="Controle pessoal de ponto e banco de horas.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Meus Pontos</title>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+      <div class="brand"><strong>Meus Pontos</strong><span>Controle de jornada</span></div>
+      <button class="icon-btn refresh" type="button" id="refresh" title="Atualizar dados" aria-label="Atualizar dados">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="page" id="page-ponto" aria-labelledby="title-ponto">
+      <div class="heading"><div><p class="eyebrow">SEU DIA</p><h1 id="title-ponto">Registrar ponto</h1><p id="today-date" class="muted">Carregando data…</p></div><span class="status" id="today-status">Carregando</span></div>
+      <section class="card clock-card" aria-label="Novo registro">
+        <p class="eyebrow center">HORÁRIO DO REGISTRO</p>
+        <div class="time-control">
+          <button class="adjust" id="minus" type="button" aria-label="Diminuir um minuto">−</button>
+          <time class="big-time" id="chosen-time">--:--</time>
+          <button class="adjust" id="plus" type="button" aria-label="Aumentar um minuto">+</button>
+        </div>
+        <button class="text-button" id="reset-time" type="button">Usar horário atual</button>
+        <button class="primary" type="button" id="register" disabled>Carregando…</button>
+        <p id="point-hint" class="hint">O próximo registro será identificado automaticamente.</p>
+      </section>
+      <section class="card daily-card" aria-labelledby="steps-title">
+        <div class="card-title"><h2 id="steps-title">Registros de hoje</h2><span class="small-label" id="day-progress">0 de 4</span></div>
+        <div id="steps" class="steps"><p class="muted">Buscando registros…</p></div>
+      </section>
+      <section class="daily-summary" aria-label="Resumo do dia">
+        <div><span>Trabalhado</span><strong id="day-worked">—</strong></div>
+        <div><span>Saldo do dia</span><strong id="day-balance">—</strong></div>
+      </section>
+    </section>
+
+    <section class="page" id="page-historico" aria-labelledby="title-history" hidden>
+      <div class="heading"><div><p class="eyebrow">SUA JORNADA</p><h1 id="title-history">Histórico</h1><p class="muted">Batidas e saldos por dia</p></div></div>
+      <div class="month-picker"><label for="history-month">Selecione o mês</label><input id="history-month" type="month"></div>
+      <div class="history-summary" id="history-summary" aria-live="polite"></div>
+      <div class="history-list" id="history-list"><p class="muted">Carregando histórico…</p></div>
+    </section>
+
+    <section class="page" id="page-saldo" aria-labelledby="title-balance" hidden>
+      <div class="heading"><div><p class="eyebrow">SEU ACUMULADO</p><h1 id="title-balance">Banco de horas</h1><p class="muted">Desde o início da contagem</p></div></div>
+      <section class="balance-hero" aria-label="Saldo total">
+        <p>Saldo total</p><strong id="balance-total">—</strong><span id="balance-status">Consultando banco…</span>
+      </section>
+      <div class="balance-grid">
+        <div class="metric"><span>Saldo das jornadas</span><strong id="balance-days">—</strong></div>
+        <div class="metric"><span>Ajustes manuais</span><strong id="balance-adjustments">—</strong></div>
+        <div class="metric"><span>Faltas</span><strong id="balance-absences">—</strong></div>
+        <div class="metric"><span>Pendências</span><strong id="balance-pending">—</strong></div>
+      </div>
+      <p class="note">O saldo considera as jornadas fechadas, as faltas não justificadas e os ajustes cadastrados no banco.</p>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Navegação principal">
+    <div class="tabbar-inner">
+      <button type="button" class="tab active" data-tab="ponto" aria-current="page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Ponto</span>
+      </button>
+      <button type="button" class="tab" data-tab="historico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 4h3m-3 4h7"/></svg><span>Histórico</span>
+      </button>
+      <button type="button" class="tab" data-tab="saldo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18v16H3zM7 15l3-3 3 2 4-5"/><path d="M17 9h-4"/></svg><span>Banco de horas</span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="gate" id="gate">
+    <form class="gate-card" id="gate-form">
+      <div class="gate-logo"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+      <h2>Acessar Meus Pontos</h2>
+      <p>Informe sua chave pessoal para consultar e registrar os pontos.</p>
+      <label for="access-key">Chave de acesso</label>
+      <input id="access-key" name="key" type="password" required autocomplete="off" placeholder="Sua chave de acesso">
+      <button type="submit" class="primary" id="enter">Entrar</button>
+      <span id="gate-error" role="alert"></span>
+    </form>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
