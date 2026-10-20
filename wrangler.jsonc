@@ -17,18 +17,11 @@
   "ratelimits": [
     {
       "name": "LOGIN_LIMITER",
-      "namespace_id": "1001",
+      "namespace_id": "520261020",
       "simple": {
         "limit": 8,
         "period": 60
       }
     }
-  ],
-  "secrets": {
-    "required": [
-      "PONTO_USERNAME",
-      "PONTO_PASSWORD_RECORD",
-      "PONTO_SESSION_SECRET"
-    ]
-  }
+  ]
 }
