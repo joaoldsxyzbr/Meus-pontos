@@ -1,0 +1,17 @@
+{
+  "name": "meus-pontos",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-20",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "meus-pontos",
+      "database_id": "150895af-1ec9-4c6c-af03-a43189a9bb71"
+    }
+  ]
+}
