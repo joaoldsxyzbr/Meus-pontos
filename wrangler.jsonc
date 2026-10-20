@@ -13,5 +13,22 @@
       "database_name": "meus-pontos",
       "database_id": "150895af-1ec9-4c6c-af03-a43189a9bb71"
     }
-  ]
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    }
+  ],
+  "secrets": {
+    "required": [
+      "PONTO_USERNAME",
+      "PONTO_PASSWORD_RECORD",
+      "PONTO_SESSION_SECRET"
+    ]
+  }
 }
