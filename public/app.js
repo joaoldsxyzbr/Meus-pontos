@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { key: sessionStorage.getItem("ponto_key") || "", day: null, chosen: null, busy: false, tab: "ponto" };
+const state = { authenticated: false, day: null, chosen: null, busy: false, tab: "ponto" };
 const kinds = {
   entrada: "Entrada",
   ida_intervalo: "Saída para intervalo",
@@ -47,20 +47,21 @@ function toast(message) {
 }
 function gate(show) {
   $("gate").hidden = !show;
-  if (show) $("access-key").focus();
+  $("logout").hidden = show;
+  if (show) $("login-user").focus();
 }
 async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
+    credentials: "same-origin",
     cache: "no-store",
-    headers: { "Authorization": "Bearer " + state.key, ...(options.body ? { "Content-Type": "application/json" } : {}) }
+    headers: { ...(options.body ? { "Content-Type": "application/json" } : {}) }
   });
   let data;
   try { data = await response.json(); } catch { throw new Error("Resposta inválida do servidor."); }
   if (!response.ok) {
-    if (response.status === 401) {
-      state.key = "";
-      sessionStorage.removeItem("ponto_key");
+    if (response.status === 401 && path !== "/api/login") {
+      state.authenticated = false;
       gate(true);
     }
     throw new Error(data.error || "Ocorreu um erro na consulta.");
@@ -155,7 +156,7 @@ async function loadBalance() {
   signClass($("balance-adjustments"), data.saldo_ajustes_minutos);
 }
 async function refresh() {
-  if (!state.key) return gate(true);
+  if (!state.authenticated) return gate(true);
   try {
     if (state.tab === "ponto") await loadToday();
     if (state.tab === "historico") await loadHistory();
@@ -205,22 +206,29 @@ $("history-month").addEventListener("change", loadHistory);
 document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => chooseTab(button.dataset.tab)));
 $("gate-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const key = $("access-key").value.trim();
-  if (!key) return;
+  const usuario = $("login-user").value.trim();
+  const senha = $("login-password").value;
+  if (!usuario || !senha) return;
   $("enter").disabled = true;
   $("gate-error").textContent = "";
-  state.key = key;
   try {
-    const day = await api("/api/hoje");
-    sessionStorage.setItem("ponto_key", key);
-    $("access-key").value = "";
+    await api("/api/login", { method: "POST", body: JSON.stringify({ usuario, senha }) });
+    state.authenticated = true;
+    $("login-password").value = "";
     gate(false);
-    drawToday(day);
-    if (state.tab !== "ponto") await refresh();
+    await refresh();
   } catch (error) {
-    $("gate-error").textContent = error.message || "Acesso indisponível.";
+    $("gate-error").textContent = error.message || "Não foi possível entrar.";
   } finally {
     $("enter").disabled = false;
+  }
+});
+$("logout").addEventListener("click", async () => {
+  try {
+    await api("/api/sair", { method: "POST" });
+    window.location.reload();
+  } catch (error) {
+    toast(error.message || "Não foi possível sair.");
   }
 });
 $("history-month").value = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date()).replace("/", "-");
@@ -231,7 +239,20 @@ if (!/^\d{4}-\d{2}$/.test($("history-month").value)) {
 }
 drawClock();
 setInterval(() => { if (state.chosen === null) drawClock(); }, 15000);
-if (state.key) { gate(false); refresh(); } else gate(true);
+async function restoreSession() {
+  try {
+    await api("/api/sessao");
+    state.authenticated = true;
+    gate(false);
+    await refresh();
+  } catch (error) {
+    gate(true);
+    if (!/Sessão expirada ou inválida/.test(error.message)) {
+      $("gate-error").textContent = error.message || "Não foi possível verificar o login.";
+    }
+  }
+}
+restoreSession();
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
