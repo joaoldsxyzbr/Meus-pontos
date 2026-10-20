@@ -1,19 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { pbkdf2Sync } from "node:crypto";
 import worker from "../src/worker.js";
 import { brazilNow } from "../src/logic.js";
 
-const KEY = "chave-de-teste-1234567890-abcdefghijklmnopqrstuvwxyz";
 const ORIGIN = "https://pontos.exemplo.com";
+const USER = "joaoldsxyzbr";
+const PASSWORD = "senha-forte-de-teste-12345!";
+const SALT = Buffer.alloc(16, 7);
+const RECORD = "v1:100000:" + SALT.toString("base64url") + ":" +
+  pbkdf2Sync(PASSWORD, SALT, 100000, 32, "sha256").toString("base64url");
+const SESSION_SECRET = Buffer.alloc(32, 5).toString("base64url");
+const TEST_TIME = "00:03";
+
 function fixture() {
   const date = brazilNow().date;
-  const points = [{ tipo: "entrada", horario: "06:44" }, { tipo: "ida_intervalo", horario: "11:07" }, { tipo: "volta_intervalo", horario: "12:54" }];
+  const points = [
+    { tipo: "entrada", horario: "00:00" },
+    { tipo: "ida_intervalo", horario: "00:01" },
+    { tipo: "volta_intervalo", horario: "00:02" }
+  ];
   let inserted = 0;
+  let attempts = 0;
   const DB = {
     prepare(sql) {
       let params = [];
       return {
-        bind(...args) { params = args; return this; },
+        bind(...values) { params = values; return this; },
         async first() {
           if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1 };
           if (sql.includes("FROM resumo_diario") && sql.includes("WHERE data =")) {
@@ -38,50 +51,108 @@ function fixture() {
       };
     }
   };
-  return { DB, PONTO_API_KEY: KEY, ASSETS: { fetch: async () => new Response("ok") }, points, get inserted() { return inserted; } };
+  return {
+    DB, points,
+    PONTO_USERNAME: USER,
+    PONTO_PASSWORD_RECORD: RECORD,
+    PONTO_SESSION_SECRET: SESSION_SECRET,
+    LOGIN_LIMITER: { async limit() { attempts++; return { success: attempts <= 8 }; } },
+    ASSETS: { fetch: async () => new Response("ok") },
+    get inserted() { return inserted; }
+  };
 }
-function request(path, method = "GET", body, key = KEY, origin = ORIGIN) {
-  return new Request(ORIGIN + path, { method, headers: { Authorization: "Bearer " + key, ...(body ? { "Content-Type": "application/json", Origin: origin } : {}) }, body: body ? JSON.stringify(body) : undefined });
+
+function request(path, method = "GET", body, cookie = "", origin = ORIGIN) {
+  return new Request(ORIGIN + path, {
+    method,
+    headers: {
+      ...(cookie ? { Cookie: cookie } : {}),
+      ...(body ? { "Content-Type": "application/json", Origin: origin } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
 }
-test("API nega acesso sem chave forte e sem autorização", async () => {
+async function authenticate(env) {
+  const response = await worker.fetch(request("/api/login", "POST", { usuario: USER, senha: PASSWORD }), env);
+  assert.equal(response.status, 200);
+  const fullCookie = response.headers.get("Set-Cookie");
+  assert.match(fullCookie, /HttpOnly/);
+  assert.match(fullCookie, /SameSite=Strict/);
+  assert.match(fullCookie, /Secure/);
+  return fullCookie.split(";")[0];
+}
+
+test("API bloqueia acesso se secrets não estiverem configurados", async () => {
   const env = fixture();
-  delete env.PONTO_API_KEY;
-  assert.equal((await worker.fetch(request("/api/hoje"), env)).status, 503);
-  env.PONTO_API_KEY = KEY;
-  assert.equal((await worker.fetch(request("/api/hoje", "GET", null, "errada"), env)).status, 401);
+  delete env.PONTO_PASSWORD_RECORD;
+  const response = await worker.fetch(request("/api/hoje"), env);
+  assert.equal(response.status, 503);
 });
-test("API consulta as três telas sem modificar banco", async () => {
+
+test("API recusa consulta sem sessão e senha incorreta", async () => {
   const env = fixture();
-  const today = await worker.fetch(request("/api/hoje"), env);
-  assert.equal(today.status, 200);
+  assert.equal((await worker.fetch(request("/api/hoje"), env)).status, 401);
+  assert.equal((await worker.fetch(request("/api/login", "POST", { usuario: USER, senha: "errada" }), env)).status, 401);
+  assert.equal((await worker.fetch(request("/api/login", "POST", { usuario: "outra", senha: PASSWORD }), env)).status, 401);
+});
+
+test("Login aceita credenciais corretas e autentica as três telas", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  const session = await worker.fetch(request("/api/sessao", "GET", null, cookie), env);
+  assert.deepEqual(await session.json(), { autenticado: true, usuario: USER });
+  const today = await worker.fetch(request("/api/hoje", "GET", null, cookie), env);
   assert.equal((await today.json()).next_type, "saida");
-  const history = await worker.fetch(request("/api/historico?mes=2026-10"), env);
+  const history = await worker.fetch(request("/api/historico?mes=2026-10", "GET", null, cookie), env);
   assert.equal(history.status, 200);
-  const saldo = await worker.fetch(request("/api/saldo"), env);
-  assert.equal((await saldo.json()).saldo_total_minutos, 33);
+  const balance = await worker.fetch(request("/api/saldo", "GET", null, cookie), env);
+  assert.equal((await balance.json()).saldo_total_minutos, 33);
   assert.equal(env.inserted, 0);
 });
-test("API registra saída uma vez e impede duplicidade", async () => {
+
+test("Cookie adulterado é rejeitado e sair remove cookie", async () => {
   const env = fixture();
-  const post = await worker.fetch(request("/api/pontos", "POST", { horario: "17:04" }), env);
-  assert.equal(post.status, 201);
-  const data = await post.json();
-  assert.equal(data.type, "saida");
-  assert.equal(data.next_type, null);
-  assert.equal(env.points[3].horario, "17:04");
-  const again = await worker.fetch(request("/api/pontos", "POST", { horario: "17:05" }), env);
-  assert.equal(again.status, 409);
+  const cookie = await authenticate(env);
+  const tampered = cookie.slice(0, -1) + (cookie.endsWith("A") ? "B" : "A");
+  assert.equal((await worker.fetch(request("/api/hoje", "GET", null, tampered), env)).status, 401);
+  const logout = await worker.fetch(request("/api/sair", "POST", {}, cookie), env);
+  assert.equal(logout.status, 200);
+  assert.match(logout.headers.get("Set-Cookie"), /Max-Age=0/);
+});
+
+test("Limite de tentativas impede força bruta", async () => {
+  const env = fixture();
+  for (let i = 0; i < 8; i++) {
+    assert.equal((await worker.fetch(request("/api/login", "POST", { usuario: USER, senha: "errada" }), env)).status, 401);
+  }
+  assert.equal((await worker.fetch(request("/api/login", "POST", { usuario: USER, senha: PASSWORD }), env)).status, 429);
+});
+
+test("API bloqueia CSRF, formato incorreto e regressão de horário", async () => {
+  const env = fixture();
+  assert.equal((await worker.fetch(request("/api/login", "POST", { usuario: USER, senha: PASSWORD }, "", "https://externo.com"), env)).status, 403);
+  const cookie = await authenticate(env);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: TEST_TIME }, cookie, "https://externo.com"), env)).status, 403);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "24:15" }, cookie), env)).status, 400);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "00:01" }, cookie), env)).status, 400);
+  assert.equal(env.inserted, 0);
+});
+
+test("Registro autenticado não repete batida", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  const now = brazilNow().time;
+  if (now < TEST_TIME) return; // Antes das 00:03, não existe horário válido após a terceira batida simulada.
+  const res = await worker.fetch(request("/api/pontos", "POST", { horario: TEST_TIME }, cookie), env);
+  assert.equal(res.status, 201);
+  assert.equal((await res.json()).type, "saida");
+  assert.equal(env.points[3].horario, TEST_TIME);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: TEST_TIME }, cookie), env)).status, 409);
   assert.equal(env.inserted, 1);
 });
-test("API bloqueia origem externa, formatos errados e hora regressiva", async () => {
-  const env = fixture();
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "17:04" }, KEY, "https://externo.com"), env)).status, 403);
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "24:15" }), env)).status, 400);
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "11:00" }), env)).status, 400);
-  assert.equal(env.inserted, 0);
-});
-test("Assets são servidos com CSP", async () => {
-  const res = await worker.fetch(new Request(ORIGIN + "/"), fixture());
-  assert.equal(res.status, 200);
-  assert.ok(res.headers.get("Content-Security-Policy").includes("script-src 'self'"));
+
+test("Arquivos públicos preservam política CSP e não exibem segredos", async () => {
+  const response = await worker.fetch(new Request(ORIGIN + "/"), fixture());
+  assert.equal(response.status, 200);
+  assert.ok(response.headers.get("Content-Security-Policy").includes("script-src 'self'"));
 });
