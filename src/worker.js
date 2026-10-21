@@ -1,5 +1,6 @@
 import { brazilNow, weekday, nextType, validTime, validMonth } from "./logic.js";
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
+import { adjustmentsApi } from "./adjustments.js";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -127,8 +128,8 @@ export default {
       responseHeaders.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
       return new Response(response.body, { status: response.status, headers: responseHeaders });
     }
-    if (request.method !== "GET" && request.method !== "POST") return json({ error: "Método não permitido." }, 405);
-    if (request.method === "POST" && !acceptedPostOrigin(request)) return json({ error: "Origem não permitida." }, 403);
+    if (!["GET", "POST", "PUT", "DELETE"].includes(request.method)) return json({ error: "Método não permitido." }, 405);
+    if (request.method !== "GET" && !acceptedPostOrigin(request)) return json({ error: "Origem não permitida." }, 403);
     if (!authConfigured(env)) return json({ error: "Login ainda não configurado no Worker." }, 503);
     try {
       if (url.pathname === "/api/login" && request.method === "POST") return await login(request, env);
@@ -145,6 +146,8 @@ export default {
       if (url.pathname === "/api/pontos" && request.method === "POST") return await register(request, env);
       if (url.pathname === "/api/historico" && request.method === "GET") return await history(request, env);
       if (url.pathname === "/api/saldo" && request.method === "GET") return await balance(env);
+      const adjustmentResponse = await adjustmentsApi(request, env, url);
+      if (adjustmentResponse) return adjustmentResponse;
       return json({ error: "Rota não encontrada." }, 404);
     } catch (error) {
       console.error("Falha em operação D1:", error?.name || "Erro");
