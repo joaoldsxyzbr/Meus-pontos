@@ -73,7 +73,6 @@ async function register(request, env) {
   if (!validTime(time)) return json({ error: "Horário inválido." }, 400);
 
   const now = brazilNow();
-  if (time > now.time) return json({ error: "Não é possível registrar horário futuro." }, 400);
 
   const [schedule, result] = await Promise.all([
     env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),

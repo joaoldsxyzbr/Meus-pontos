@@ -1,4 +1,4 @@
-const CACHE = "meus-pontos-shell-v4";
+const CACHE = "meus-pontos-shell-v5";
 const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/ajustes.js", "/ajustes.css", "/icon.svg", "/manifest.webmanifest"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));

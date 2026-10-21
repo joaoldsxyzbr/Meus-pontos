@@ -77,9 +77,9 @@ function drawClock() {
   $("plus").disabled = minutes === 23 * 60 + 59;
   if (state.day?.next_type && !state.busy) {
     const future = minutes > minuteValue(timeNow());
-    $("register").disabled = future;
+    $("register").disabled = false;
     $("point-hint").textContent = future
-      ? "Horário futuro: aguarde esse minuto ou use o horário atual."
+      ? "Horário adiantado: confira antes de registrar."
       : "Confira o horário antes de registrar.";
   }
 }
@@ -179,7 +179,6 @@ async function refresh() {
 async function registerPoint() {
   if (state.busy || !state.day?.next_type) return;
   const hour = state.chosen ?? timeNow();
-  if (minuteValue(hour) > minuteValue(timeNow())) return toast("Horário futuro não é permitido.");
   state.busy = true;
   $("register").disabled = true;
   $("register").textContent = "Salvando…";
