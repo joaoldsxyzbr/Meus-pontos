@@ -13,7 +13,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(request).then((response) => {
     if (response.ok) {
       const copy = response.clone();
-      event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy));
+      event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
     }
     return response;
   }).catch(async () => (await caches.match(request)) || Response.error()));
