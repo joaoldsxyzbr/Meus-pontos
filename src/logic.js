@@ -32,3 +32,25 @@ export function validTime(value) {
 export function validMonth(value) {
   return typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
+/** Valida datas de acertos (sem conversão de datas inexistentes). */
+export function validAdjustmentDate(data, today) {
+  if (typeof data !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+  if (data < "2000-01-01" || data > today) return false;
+  const parsed = new Date(data + "T00:00:00Z");
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === data;
+}
+
+/** Converte um ajuste HH:MM em minutos positivos ou negativos. */
+export function parseAdjustment(input, today) {
+  if (!input || typeof input !== "object" || !validAdjustmentDate(input.data, today)) return null;
+  if (input.tipo !== "credito" && input.tipo !== "debito") return null;
+  if (typeof input.duracao !== "string") return null;
+  const match = /^([0-9]{1,3}):([0-5][0-9])$/.exec(input.duracao);
+  if (!match) return null;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  if (!minutes) return null;
+  if (typeof input.motivo !== "string") return null;
+  const motivo = input.motivo.trim();
+  if (motivo.length < 3 || motivo.length > 200 || /[\u0000-\u001f\u007f]/.test(motivo)) return null;
+  return { data: input.data, minutos: input.tipo === "credito" ? minutes : -minutes, motivo };
+}
