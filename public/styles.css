@@ -708,6 +708,19 @@ button {
 }
 
 @media (max-width: 720px) {
+  /* O cabeçalho não cobre o título durante a rolagem no celular. */
+  .header {
+    position: relative;
+  }
+
+  .container {
+    padding-top: 20px;
+  }
+
+  .page {
+    gap: 14px;
+  }
+
   .header-inner,
   .container {
     width: min(calc(100% - 28px), var(--container));
