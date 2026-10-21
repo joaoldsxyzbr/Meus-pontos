@@ -151,6 +151,16 @@ test("Registro autenticado não repete batida", async () => {
   assert.equal(env.inserted, 1);
 });
 
+test("API permite horário adiantado no mesmo dia, preservando a ordem", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  const response = await worker.fetch(request("/api/pontos", "POST", { horario: "23:59" }, cookie), env);
+  assert.equal(response.status, 201);
+  assert.equal((await response.json()).type, "saida");
+  assert.equal(env.points.at(-1).horario, "23:59");
+  assert.equal(env.inserted, 1);
+});
+
 test("Arquivos públicos preservam política CSP e não exibem segredos", async () => {
   const response = await worker.fetch(new Request(ORIGIN + "/"), fixture());
   assert.equal(response.status, 200);
