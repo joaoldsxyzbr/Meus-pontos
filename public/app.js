@@ -69,12 +69,23 @@ async function api(path, options = {}) {
   return data;
 }
 function drawClock() {
-  $("chosen-time").textContent = state.chosen ?? timeNow();
+  const chosen = state.chosen ?? timeNow();
+  const minutes = minuteValue(chosen);
+  $("chosen-time").textContent = chosen;
   $("reset-time").hidden = state.chosen === null;
+  $("minus").disabled = minutes === 0;
+  $("plus").disabled = minutes === 23 * 60 + 59;
+  if (state.day?.next_type && !state.busy) {
+    const future = minutes > minuteValue(timeNow());
+    $("register").disabled = future;
+    $("point-hint").textContent = future
+      ? "Horário futuro: aguarde esse minuto ou use o horário atual."
+      : "Confira o horário antes de registrar.";
+  }
 }
 function adjustTime(delta) {
   const old = minuteValue(state.chosen ?? timeNow());
-  const next = Math.max(0, Math.min(minuteValue(timeNow()), old + delta));
+  const next = Math.max(0, Math.min(23 * 60 + 59, old + delta));
   state.chosen = timeValue(next);
   drawClock();
 }
@@ -238,7 +249,7 @@ if (!/^\d{4}-\d{2}$/.test($("history-month").value)) {
   $("history-month").value = value.year + "-" + value.month;
 }
 drawClock();
-setInterval(() => { if (state.chosen === null) drawClock(); }, 15000);
+setInterval(drawClock, 15000);
 async function restoreSession() {
   try {
     await api("/api/sessao");
