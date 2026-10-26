@@ -16,3 +16,10 @@
 - Trabalhar em branch e abrir PR; não publicar/mesclar automaticamente.
 - Acrescentar testes para inferência, degradação por falta de dados, limites de autonomia e vazamento de dados.
 - Verificar `npm test`, CI, revisão de diferenças e comportamento no navegador antes de disponibilizar em produção.
+
+## Mudanças de jornada e banco de horas
+
+- Não presumir qual sábado é trabalhado; ativação da alternância requer data de referência confirmada.
+- Nunca migrar views do D1 de produção sem backup, simulação em cópia, comparação dos saldos e autorização explícita.
+- O Worker e as views devem aplicar a mesma carga prevista para justificativas e sábados.
+- CI não substitui testes mobile/PWA em navegador real nem integração numa cópia do D1.

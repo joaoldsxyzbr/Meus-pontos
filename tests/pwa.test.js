@@ -8,7 +8,9 @@ const publicDir = path.resolve("public");
 const swCode = fs.readFileSync(path.join(publicDir,"sw.js"),"utf8");
 
 test("PWA inclui recursos reais sem APIs no cache", () => {
-  const assets = [...swCode.matchAll(/"\/[^"]+"/g)].map(x => x[0].slice(2,-1));
+  const definition = swCode.match(/const SHELL = (\[[^\]]+\]);/);
+  assert.ok(definition);
+  const assets = JSON.parse(definition[1]).map(x => x.replace(/^\//,""));
   for(const asset of assets) {
     if(asset !== "") assert.ok(fs.existsSync(path.join(publicDir,asset)), "Recurso ausente: "+asset);
   }

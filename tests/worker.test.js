@@ -13,7 +13,7 @@ const RECORD = "v1:100000:" + SALT.toString("base64url") + ":" +
 const SESSION_SECRET = Buffer.alloc(32, 5).toString("base64url");
 const TEST_TIME = "00:03";
 
-function fixture() {
+function fixture(scheduleOverrides = {}) {
   const date = brazilNow().date;
   const points = [
     { tipo: "entrada", horario: "00:00" },
@@ -28,7 +28,7 @@ function fixture() {
       return {
         bind(...values) { params = values; return this; },
         async first() {
-          if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1 };
+          if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1, ...scheduleOverrides };
           if (sql.includes("FROM resumo_diario") && sql.includes("WHERE data =")) {
             return { total_trabalhado_minutos: inserted ? 513 : null, saldo_minutos: inserted ? 33 : null, pendencia: inserted ? null : "sem_saida" };
           }
@@ -182,4 +182,15 @@ test("Arquivos públicos preservam política CSP e não exibem segredos", async 
   const response = await worker.fetch(new Request(ORIGIN + "/"), fixture());
   assert.equal(response.status, 200);
   assert.ok(response.headers.get("Content-Security-Policy").includes("script-src 'self'"));
+});
+test("API bloqueia nova batida em feriado justificado", async () => {
+  const env=fixture({justificativa:"feriado"});
+  const cookie=await authenticate(env);
+  const day=await (await worker.fetch(request("/api/hoje","GET",null,cookie),env)).json();
+  assert.equal(day.carga_minutos,0);
+  assert.equal(day.justificativa,"feriado");
+  assert.equal(day.next_type,null);
+  const res=await worker.fetch(request("/api/pontos","POST",{horario:"23:00"},cookie),env);
+  assert.equal(res.status,409);
+  assert.equal(env.inserted,0);
 });
