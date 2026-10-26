@@ -4,9 +4,10 @@ import sqlite3
 import unittest
 
 MIGRATION = Path(__file__).resolve().parents[1] / "migrations" / "0001_escala_justificativas.sql"
+LEGACY = Path(__file__).resolve().parent / "fixtures" / "legacy_views.sql"
 
 
-def connection():
+def connection(views=MIGRATION):
     conn = sqlite3.connect(":memory:")
     conn.executescript("""
         CREATE TABLE config(chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
@@ -20,7 +21,7 @@ def connection():
         (day, 0 if day == 0 else 240 if day == 6 else 480, 0 if day in (0, 6) else 1)
         for day in range(7)
     ])
-    conn.executescript(MIGRATION.read_text(encoding="utf-8"))
+    conn.executescript(views.read_text(encoding="utf-8"))
     return conn
 
 
@@ -95,6 +96,72 @@ class ScheduleMigrationTests(unittest.TestCase):
             "SELECT carga_minutos, saldo_minutos, pendencia FROM banco_horas WHERE data='2025-06-20'"
         ).fetchone()
         self.assertEqual(row, (None,None,"sem_saida"))
+
+
+    def test_snapshot_sql_real_preserva_saldos_sem_regras_novas(self):
+        """Roda o esquema original do D1 e a migração sobre dados sintéticos iguais."""
+        previous = connection(LEGACY)
+        updated = connection(MIGRATION)
+        try:
+            for database in (previous, updated):
+                database.executemany(
+                    "INSERT INTO pontos(data,tipo,horario) VALUES(?,?,?)", [
+                        ("2025-06-14", "entrada", "07:00"),
+                        ("2025-06-14", "saida", "11:00"),
+                        ("2025-06-20", "entrada", "07:00"),
+                        ("2025-06-20", "ida_intervalo", "10:30"),
+                        ("2025-06-20", "volta_intervalo", "12:30"),
+                        ("2025-06-20", "saida", "17:00"),
+                    ]
+                )
+                database.execute(
+                    "INSERT INTO ajustes_banco(data,minutos,motivo) VALUES('2025-06-15',25,'teste')"
+                )
+            query = (
+                "SELECT data,carga_prevista,saldo_minutos,origem,pendencia "
+                "FROM resumo_diario WHERE data BETWEEN '2025-06-13' AND '2025-06-23' ORDER BY data"
+            )
+            self.assertEqual(previous.execute(query).fetchall(), updated.execute(query).fetchall())
+            self.assertEqual(
+                previous.execute("SELECT * FROM saldo_total").fetchone(),
+                updated.execute("SELECT * FROM saldo_total").fetchone()
+            )
+            legacy_query = (
+                "SELECT data,carga_minutos,saldo_minutos,pendencia FROM banco_horas ORDER BY data"
+            )
+            self.assertEqual(previous.execute(legacy_query).fetchall(),
+                             updated.execute(legacy_query).fetchall())
+        finally:
+            previous.close()
+            updated.close()
+
+    def test_efeitos_das_novas_regras_sao_explicitos_vs_esquema_original(self):
+        previous = connection(LEGACY)
+        updated = connection(MIGRATION)
+        try:
+            for database in (previous, updated):
+                database.execute(
+                    "INSERT INTO config VALUES ('sabado_trabalhado_inicio','2025-06-14')"
+                )
+                database.execute(
+                    "INSERT INTO justificativas(data,tipo) VALUES('2025-06-25','feriado')"
+                )
+                database.executemany(
+                    "INSERT INTO pontos(data,tipo,horario) VALUES(?,?,?)", [
+                        ("2025-06-25", "entrada", "07:00"),
+                        ("2025-06-25", "saida", "11:00")
+                    ]
+                )
+            # Sábado depois da referência: o esquema antigo cobrava 4h; o novo dá folga.
+            self.assertEqual(daily(previous, "2025-06-21")[:2], (240, -240))
+            self.assertEqual(daily(updated, "2025-06-21")[:2], (0, 0))
+            # Feriado com batidas: antes debitava 4h contra jornada de 8h;
+            # agora credita as 4h trabalhadas contra jornada dispensada.
+            self.assertEqual(daily(previous, "2025-06-25")[:2], (480, -240))
+            self.assertEqual(daily(updated, "2025-06-25")[:2], (0, 240))
+        finally:
+            previous.close()
+            updated.close()
 
     def test_saldo_consolidado_consistente(self):
         self.db.execute("INSERT INTO ajustes_banco(data,minutos,motivo) VALUES ('2025-06-20',30,'ajuste')")
