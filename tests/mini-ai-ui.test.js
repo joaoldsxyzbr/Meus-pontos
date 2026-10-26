@@ -17,6 +17,8 @@ async function until(predicate, label, maxMs = 2000) {
 test("integra três leituras, audita mês anterior e copia diagnóstico sem gravar", async () => {
   const ids = ["mini-ai-status", "mini-ai-detail", "mini-ai-findings", "mini-ai-analyze", "mini-ai-copy"];
   const elements = new Map(ids.map(id => [id, new MockElement()]));
+  // Reproduzir o estado inicial definido no HTML: cópia desabilitada.
+  elements.get("mini-ai-copy").disabled = true;
   let copied = null;
   const requests = [];
   globalThis.window = new EventTarget();
