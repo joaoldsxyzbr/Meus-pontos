@@ -90,7 +90,7 @@ test("audita mês selecionado sem usá-lo no treinamento recente", () => {
     ...sample(), data: "2026-08-" + String(i + 1).padStart(2, "0"),
     pendencia: i === 0 ? "sem_saida" : null
   }));
-  const result = auditWorkspace(day(), oldMonth, balance(), [], { history: true }, []);
+  const result = auditWorkspace({ ...day(), usa_intervalo: true }, oldMonth, balance(), [], { history: true }, []);
   assert.equal(result.metrics.observed_days, 12);
   assert.equal(result.metrics.usable_training_days, 0);
   assert.equal(result.prediction, null);
