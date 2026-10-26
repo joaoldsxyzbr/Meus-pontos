@@ -1,0 +1,22 @@
+.mini-ai-card {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid rgba(125, 240, 219, .14);
+}
+.mini-ai-card h2 { margin: 0; font-size: 1.08rem; }
+.mini-ai-card .mini-ai-state { color: #a7fff1; font-weight: 700; }
+.mini-ai-card .mini-ai-detail { margin: 0; white-space: pre-line; line-height: 1.55; }
+.mini-ai-card .mini-ai-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.mini-ai-card .mini-ai-actions button {
+  background: rgba(125,240,219,.10);
+  border: 1px solid rgba(125,240,219,.20);
+  border-radius: 12px;
+  color: inherit;
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+.mini-ai-card .mini-ai-actions button:disabled { opacity: .5; cursor: not-allowed; }

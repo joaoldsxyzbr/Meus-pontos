@@ -70,3 +70,7 @@ Os testes usam somente recursos nativos do Node.js. O GitHub Actions valida test
 
 - O primeiro usuário **ainda precisa ser configurado e o Worker publicado** para o login funcionar em produção.
 - As jornadas continuam usando `jornada_padrao`, `resumo_diario` e `saldo_total` do D1; a regra de sábado intercalado ainda não foi implementada no banco.
+
+## Mini IA local (experimental)
+
+A mini IA própria do projeto é uma pequena rede neural treinada no navegador com jornadas completas dos dois últimos meses. Ela estima horários somente se houver dados suficientes e erro de validação aceitável, identifica pendências e oferece diagnóstico para copiar manualmente. **Nunca altera pontos ou saldo**, nem envia dados para provedores de IA. Veja [MINI-IA.md](MINI-IA.md).

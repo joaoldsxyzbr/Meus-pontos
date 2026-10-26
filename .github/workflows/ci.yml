@@ -23,3 +23,5 @@ jobs:
           node --check src/worker.js
           node --check public/app.js
           node --check public/sw.js
+          node --check public/mini-ai.js
+          node --check public/mini-ai-ui.js

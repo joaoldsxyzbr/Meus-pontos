@@ -119,6 +119,7 @@ function drawToday(day) {
   $("day-balance").textContent = minutesText(day.saldo_minutos, true);
   signClass($("day-balance"), day.saldo_minutos);
   drawClock();
+  window.dispatchEvent(new CustomEvent('meus-pontos:dia-atualizado', { detail: day }));
 }
 async function loadToday() {
   const day = await api("/api/hoje");

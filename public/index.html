@@ -10,9 +10,11 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/ajustes.css">
+  <link rel="stylesheet" href="/mini-ai.css">
   <title>Meus Pontos</title>
   <script type="module" src="/app.js"></script>
   <script type="module" src="/ajustes.js"></script>
+  <script type="module" src="/mini-ai-ui.js"></script>
 </head>
 <body>
   <header class="header">
@@ -49,6 +51,15 @@
       <section class="daily-summary" aria-label="Resumo do dia">
         <div><span>Trabalhado</span><strong id="day-worked">—</strong></div>
         <div><span>Saldo do dia</span><strong id="day-balance">—</strong></div>
+      </section>
+      <section class="card mini-ai-card" aria-labelledby="mini-ai-title">
+        <h2 id="mini-ai-title">Mini IA • Jornada</h2>
+        <strong class="mini-ai-state" id="mini-ai-status">Pronta para analisar</strong>
+        <p class="muted mini-ai-detail" id="mini-ai-detail" aria-live="polite">Aprende padrões do seu histórico neste dispositivo. Não registra nem altera batidas.</p>
+        <div class="mini-ai-actions">
+          <button type="button" id="mini-ai-analyze">Reanalisar</button>
+          <button type="button" id="mini-ai-copy" disabled>Copiar diagnóstico</button>
+        </div>
       </section>
     </section>
 
