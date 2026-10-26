@@ -57,7 +57,11 @@ async function request(path, options = {}) {
     headers: options.body ? { "Content-Type": "application/json" } : undefined
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Não foi possível completar a operação.");
+  if (!res.ok) {
+    if (res.status !== 401) window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",
+      { detail: { path: path.split("?")[0].replace(/\/\d+$/, ""), status: res.status } }));
+    throw new Error(data.error || "Não foi possível completar a operação.");
+  }
   return data;
 }
 function alertUser(message) {
@@ -132,6 +136,7 @@ async function reloadBalance() {
   set("balance-absences", data.faltas, false);
   set("balance-pending", data.pendencias, false);
   $a("balance-status").textContent = data.saldo_total_minutos > 0 ? "Horas a favor" : data.saldo_total_minutos < 0 ? "Horas a compensar" : "Banco de horas zerado";
+  window.dispatchEvent(new CustomEvent("meus-pontos:saldo-atualizado", { detail: data }));
 }
 async function reload() { await Promise.all([loadLedger(), reloadBalance()]); }
 async function save(event) {

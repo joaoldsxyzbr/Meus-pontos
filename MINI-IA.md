@@ -10,6 +10,14 @@ A previsão só aparece com pelo menos 10 dias válidos e amostras suficientes d
 
 O botão **Copiar diagnóstico** produz um JSON com versão, contagens, erro de validação, previsão e códigos explicados. Não inclui nome do usuário, batidas originais, motivos, credenciais nem cookies. Compartilhamento é exclusivamente manual. A IA não cria observabilidade externa ou logs persistentes.
 
+## Supervisor local — etapa 2
+
+O supervisor também verifica, por regras **determinísticas**, registros em sequência, intervalos incompletos e a identidade `saldo total = saldo das batidas + saldo dos ajustes`. Ele acompanha consultas nas telas de **ponto**, **histórico** e **banco de horas**, apresentando alertas numa seção recolhida por padrão. Quando a consulta falha, indica expressamente a parte não verificada; não inventa um saldo ou histórico.
+
+Erros de API geram somente indicadores em memória da página, limitados a 20 ocorrências, com área e código HTTP. Não são gravados no D1, localStorage, GitHub nem em serviços externos. O diagnóstico copiado exige clique e usa lista de campos permitidos: códigos, contagens, provável causa e ações recomendadas, sem os horários originais, datas de trabalho individuais, credenciais ou motivos particulares.
+
+Treinamento é refeito de forma temporária durante análise; não é aprendizado incremental persistente e ainda não equivale a monitoramento em segundo plano com o aplicativo fechado.
+
 ## Próximas melhorias possíveis
 
 - Avaliar qualidade em dados simulados que cubram escalas diferentes, feriados, jornada de sábado intercalado e faltas justificadas.

@@ -1,5 +1,5 @@
-const CACHE = "meus-pontos-shell-v6";
-const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/ajustes.js", "/ajustes.css", "/mini-ai.css", "/mini-ai.js", "/mini-ai-ui.js", "/icon.svg", "/manifest.webmanifest"];
+const CACHE = "meus-pontos-shell-v7";
+const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/ajustes.js", "/ajustes.css", "/mini-ai.css", "/mini-ai.js", "/mini-ai-supervision.js", "/mini-ai-ui.js", "/icon.svg", "/manifest.webmanifest"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });

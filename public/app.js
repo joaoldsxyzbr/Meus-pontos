@@ -60,6 +60,9 @@ async function api(path, options = {}) {
   let data;
   try { data = await response.json(); } catch { throw new Error("Resposta inválida do servidor."); }
   if (!response.ok) {
+    if (state.authenticated && path !== "/api/sessao" && path !== "/api/login" && response.status !== 401) {
+      window.dispatchEvent(new CustomEvent("meus-pontos:api-falha", { detail: { path: path.split("?")[0], status: response.status } }));
+    }
     if (response.status === 401 && path !== "/api/login") {
       state.authenticated = false;
       gate(true);
@@ -155,6 +158,7 @@ async function loadHistory() {
   } else days.forEach((item) => list.append(historyRow(item)));
   const total = days.reduce((sum, item) => sum + (item.saldo_minutos || 0), 0);
   $("history-summary").textContent = days.length + " dias no período · Saldo " + minutesText(total, true);
+  window.dispatchEvent(new CustomEvent("meus-pontos:historico-atualizado", { detail: { month, days } }));
 }
 async function loadBalance() {
   const data = await api("/api/saldo");
@@ -166,6 +170,7 @@ async function loadBalance() {
   $("balance-status").textContent = data.saldo_total_minutos > 0 ? "Horas a favor" : data.saldo_total_minutos < 0 ? "Horas a compensar" : "Banco de horas zerado";
   signClass($("balance-days"), data.saldo_batidas_minutos);
   signClass($("balance-adjustments"), data.saldo_ajustes_minutos);
+  window.dispatchEvent(new CustomEvent("meus-pontos:saldo-atualizado", { detail: data }));
 }
 async function refresh() {
   if (!state.authenticated) return gate(true);

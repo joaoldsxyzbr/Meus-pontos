@@ -25,3 +25,5 @@ jobs:
           node --check public/sw.js
           node --check public/mini-ai.js
           node --check public/mini-ai-ui.js
+          node --check public/mini-ai-supervision.js
+          node --check public/ajustes.js

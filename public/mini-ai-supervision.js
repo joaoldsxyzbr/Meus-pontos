@@ -16,6 +16,7 @@ const KNOWN = Object.freeze({
   INTERVALO_PARCIAL: ["historico", "atencao", "Intervalos incompletos sem pendência explícita.", "Há jornada com apenas uma marcação de intervalo, mas sem pendência indicada.", "Conferir se o resumo do D1 está atualizado."],
   SALDO_DIVERGENTE: ["banco", "alerta", "O saldo consolidado não fecha.", "O total informado difere da soma do saldo das batidas e dos ajustes.", "Conferir a consulta ou a visão de saldo no D1 antes de usar o valor."],
   SALDO_INDISPONIVEL: ["banco", "info", "Saldo não verificado nesta análise.", "A consulta não retornou todos os componentes numéricos exigidos.", "Atualizar a página e conferir o painel de banco de horas."],
+  HISTORICO_INDISPONIVEL: ["historico", "atencao", "Histórico indisponível para avaliação.", "A consulta do D1 falhou ou a sessão foi interrompida.", "Verificar conexão e tentar novamente, sem deduzir pontos ausentes."],
   API_INDISPONIVEL: ["sistema", "atencao", "Uma consulta do aplicativo falhou.", "Instabilidade de rede, sessão ou API; nenhuma causa específica foi confirmada.", "Tentar atualizar. Se persistir, copiar o diagnóstico para investigação."],
   API_ERRO: ["sistema", "atencao", "Uma operação retornou erro HTTP.", "A API recusou uma requisição ou falhou ao processá-la.", "Conferir o estado do aplicativo e investigar o endpoint indicado no diagnóstico."]
 });
@@ -80,10 +81,12 @@ export function normalizeApiFailure(path, status) {
 }
 
 /** Produces a bounded, non-sensitive diagnostic from current authorized data. */
-export function auditWorkspace(day, history, balance, apiFailures = []) {
+export function auditWorkspace(day, history, balance, apiFailures = [], availability = {}) {
   if (!Array.isArray(history)) throw new TypeError("Histórico inválido.");
-  const neural = analyzeAttendance(day, history);
+  const historyAvailable = availability.history !== false;
+  const neural = analyzeAttendance(day, historyAvailable ? history : []);
   const findings = neural.findings.map(entry => makeFinding(entry.code)).filter(Boolean);
+  if (!historyAvailable) findings.push(makeFinding("HISTORICO_INDISPONIVEL"));
   const { disorder, partial } = auditHistory(history);
   if (disorder) findings.push(makeFinding("HISTORICO_FORA_ORDEM", disorder));
   if (partial) findings.push(makeFinding("INTERVALO_PARCIAL", partial));
@@ -113,7 +116,7 @@ export function auditWorkspace(day, history, balance, apiFailures = []) {
     version: SUPERVISOR_VERSION,
     engine: neural.version,
     source: "leitura do D1 + verificações determinísticas + previsão neural local",
-    checked: { ponto: true, historico: true, banco: Boolean(validBalance) },
+    checked: { ponto: true, historico: historyAvailable, banco: Boolean(validBalance) },
     metrics: {
       observed_days: history.length,
       usable_training_days: neural.training_days,

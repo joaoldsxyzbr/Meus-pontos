@@ -1,74 +1,165 @@
-import { analyzeAttendance } from './mini-ai.js';
+import { auditWorkspace, buildDiagnosticReport, normalizeApiFailure } from "./mini-ai-supervision.js";
 
-const status = document.getElementById('mini-ai-status');
-const detail = document.getElementById('mini-ai-detail');
-const analyzeButton = document.getElementById('mini-ai-analyze');
-const copyButton = document.getElementById('mini-ai-copy');
-let latestDay = null;
-let latestReport = null;
+const get = id => document.getElementById(id);
+const status = get("mini-ai-status");
+const detail = get("mini-ai-detail");
+const findingsView = get("mini-ai-findings");
+const analyzeButton = get("mini-ai-analyze");
+const copyButton = get("mini-ai-copy");
+
+let currentDay = null;
+let selectedHistory = null;
+let currentReport = null;
+let balanceCache = null;
+let failures = [];
 let revision = 0;
+let scheduled = null;
 
-async function getJson(path) {
-  const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store' });
-  if (!response.ok) throw new Error('Consulta ao histórico indisponível (' + response.status + ').');
-  return response.json();
-}
-function previousMonth(month) {
-  const date = new Date(month + '-01T12:00:00Z');
+function monthBefore(value) {
+  const date = new Date(value + "-01T12:00:00Z");
   date.setUTCMonth(date.getUTCMonth() - 1);
   return date.toISOString().slice(0, 7);
 }
-function render(report) {
-  const prediction = report.prediction;
-  status.textContent = prediction ? 'Previsão local disponível' : 'Análise local concluída';
+function recordFailure(path, statusCode) {
+  const item = normalizeApiFailure(path, statusCode);
+  if (!item) return;
+  failures.push({ path, status: statusCode });
+  failures = failures.slice(-20);
+}
+async function getJson(path) {
+  let response;
+  try {
+    response = await fetch(path, { credentials: "same-origin", cache: "no-store" });
+  } catch {
+    recordFailure(path, 0);
+    throw new Error("Sem conexão.");
+  }
+  if (!response.ok) {
+    recordFailure(path, response.status);
+    throw new Error("Falha na consulta.");
+  }
+  return response.json();
+}
+function createFinding(finding) {
+  const wrapper = document.createElement("article");
+  wrapper.className = "mini-ai-finding";
+  wrapper.dataset.severity = finding.severity;
+  const name = document.createElement("strong");
+  const areas = { ponto: "Ponto", historico: "Histórico", banco: "Banco de horas", sistema: "Sistema" };
+  name.textContent = (areas[finding.area] || "Sistema") + " · " + finding.title +
+    (finding.count > 1 ? " (" + finding.count + " ocorrências)" : "");
+  const cause = document.createElement("p");
+  cause.textContent = "Possível causa: " + finding.probable_cause;
+  const action = document.createElement("p");
+  action.textContent = "Recomendação: " + finding.suggested_action;
+  wrapper.append(name, cause, action);
+  return wrapper;
+}
+function render(audit) {
+  const actionable = audit.findings.filter(item => item.severity !== "info");
+  status.textContent = actionable.length
+    ? actionable.length + " alerta(s) para conferir"
+    : "Nenhum alerta relevante nesta análise";
   const lines = [];
-  if (prediction) lines.push('Próxima batida (' + prediction.type.replaceAll('_', ' ') + '): por volta de ' + prediction.time + '. Margem histórica média: ±' + prediction.error_minutes + ' min.');
-  else lines.push('Sem previsão confiável da próxima batida. A IA precisa de mais exemplos consistentes.');
-  lines.push('Aprendizado: ' + report.training_days + ' dias válidos do histórico.');
-  for (const finding of report.findings.filter(item => item.code !== 'SEM_PREVISAO_SEGURA')) lines.push('• ' + finding.detail);
-  lines.push('Sugestões não alteram registros, horários nem banco de horas.');
-  detail.textContent = lines.join('\n');
+  const prediction = audit.prediction;
+  if (prediction) {
+    lines.push("Previsão neural indicativa: " + prediction.type.replaceAll("_", " ") +
+      " por volta de " + prediction.time + " (erro médio de validação: " +
+      prediction.error_minutes + " min).");
+  } else {
+    lines.push("Sem previsão neural confiável neste momento.");
+  }
+  lines.push("Verificações: ponto ✓ · histórico " + (audit.checked.historico ? "✓" : "indisponível") +
+    " · banco de horas " + (audit.checked.banco ? "✓" : "indisponível") + ".");
+  lines.push("A mini IA apenas observa e recomenda. Registros e saldos oficiais não são modificados.");
+  detail.textContent = lines.join("\n");
+
+  findingsView.replaceChildren();
+  if (!audit.findings.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = "Não foram identificadas situações que precisem de conferência.";
+    findingsView.append(p);
+  } else {
+    for (const finding of audit.findings) findingsView.append(createFinding(finding));
+  }
   copyButton.disabled = false;
 }
-async function analyze(day) {
-  latestDay = day;
-  const current = ++revision;
+
+async function analyze() {
+  if (!currentDay) return;
+  const id = ++revision;
+  currentReport = null;
   copyButton.disabled = true;
-  latestReport = null;
-  status.textContent = 'Analisando jornada…';
-  detail.textContent = 'A mini IA processa os dados neste dispositivo, sem API externa.';
+  status.textContent = "Verificando os três painéis…";
+  detail.textContent = "A análise é executada neste dispositivo, sem armazenamento de diagnósticos.";
+  const month = currentDay.date.slice(0, 7);
+  const results = await Promise.allSettled([
+    getJson("/api/historico?mes=" + month),
+    getJson("/api/historico?mes=" + monthBefore(month)),
+    getJson("/api/saldo")
+  ]);
+  if (id !== revision) return;
+  const historyAvailable = results[0].status === "fulfilled" && results[1].status === "fulfilled";
+  const aggregate = historyAvailable ? [...results[0].value.days, ...results[1].value.days] : [];
+  if (selectedHistory?.days && Array.isArray(selectedHistory.days)) aggregate.push(...selectedHistory.days);
+  // A consulta de um mês aberto pode repetir as mesmas datas: manter só a versão mais recente.
+  const unique = [...new Map(aggregate.filter(item => item && typeof item.data === "string")
+    .map(item => [item.data, item])).values()];
+  const balance = results[2].status === "fulfilled" ? results[2].value : balanceCache;
   try {
-    const month = day.date.slice(0, 7);
-    const [a, b] = await Promise.all([
-      getJson('/api/historico?mes=' + month),
-      getJson('/api/historico?mes=' + previousMonth(month))
-    ]);
-    if (current !== revision) return;
-    latestReport = analyzeAttendance(day, [...a.days, ...b.days]);
-    render(latestReport);
-  } catch (error) {
-    if (current !== revision) return;
-    status.textContent = 'Análise indisponível';
-    detail.textContent = 'O histórico não pôde ser consultado. Os pontos permanecem disponíveis normalmente.';
+    currentReport = auditWorkspace(currentDay, unique, balance, failures,
+      { history: historyAvailable });
+    render(currentReport);
+  } catch {
+    status.textContent = "Análise indisponível";
+    detail.textContent = "Não foi possível avaliar os dados recebidos; nenhum registro foi alterado.";
   }
 }
-window.addEventListener('meus-pontos:dia-atualizado', event => {
-  if (event.detail) void analyze(event.detail);
+function schedule() {
+  clearTimeout(scheduled);
+  scheduled = setTimeout(() => void analyze(), 250);
+}
+
+window.addEventListener("meus-pontos:dia-atualizado", event => {
+  if (!event.detail) return;
+  currentDay = event.detail;
+  schedule();
 });
-analyzeButton.addEventListener('click', async () => {
-  if (latestDay) void analyze(latestDay);
-  else {
-    try { await analyze(await getJson('/api/hoje')); }
-    catch { status.textContent = 'Entre no aplicativo para iniciar a análise.'; }
+window.addEventListener("meus-pontos:historico-atualizado", event => {
+  if (!event.detail || !Array.isArray(event.detail.days)) return;
+  selectedHistory = event.detail;
+  if (currentDay) schedule();
+});
+window.addEventListener("meus-pontos:saldo-atualizado", event => {
+  balanceCache = event.detail;
+  if (currentDay) schedule();
+});
+window.addEventListener("meus-pontos:api-falha", event => {
+  if (!event.detail) return;
+  recordFailure(event.detail.path, event.detail.status);
+  if (currentDay) schedule();
+});
+analyzeButton.addEventListener("click", async () => {
+  if (currentDay) {
+    void analyze();
+    return;
+  }
+  try {
+    currentDay = await getJson("/api/hoje");
+    void analyze();
+  } catch {
+    status.textContent = "Entre no aplicativo e atualize o ponto para iniciar.";
   }
 });
-copyButton.addEventListener('click', async () => {
-  if (!latestReport) return;
+copyButton.addEventListener("click", async () => {
+  if (!currentReport) return;
+  const report = buildDiagnosticReport(currentReport);
   try {
-    await navigator.clipboard.writeText(JSON.stringify(latestReport, null, 2));
-    copyButton.textContent = 'Relatório copiado';
-    setTimeout(() => { copyButton.textContent = 'Copiar diagnóstico'; }, 2500);
+    await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+    copyButton.textContent = "Relatório copiado";
+    setTimeout(() => { copyButton.textContent = "Copiar relatório técnico"; }, 2500);
   } catch {
-    status.textContent = 'Não foi possível copiar o relatório neste navegador.';
+    status.textContent = "Cópia indisponível neste navegador. Tente atualizar a página.";
   }
 });
