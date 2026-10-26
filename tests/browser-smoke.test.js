@@ -92,6 +92,8 @@ async function serve() {
     let filepath = path.resolve(root, "." + pathname);
     if (!filepath.startsWith(root + path.sep)) { response.writeHead(404); response.end(); return; }
     try {
+      // Reproduz rede lenta: a tela pode carregar antes do módulo da mini IA.
+      if (pathname === "/mini-ai-ui.js") await new Promise(resolve => setTimeout(resolve, 900));
       let file = await fs.readFile(filepath);
       if (pathname === "/index.html") file = Buffer.from(file.toString()
         .replace("</body>", '<script type="module" src="/__smoke.js"></script></body>'));
