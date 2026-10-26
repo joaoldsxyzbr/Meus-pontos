@@ -120,6 +120,21 @@ test("Cookie adulterado é rejeitado e sair remove cookie", async () => {
   assert.match(logout.headers.get("Set-Cookie"), /Max-Age=0/);
 });
 
+test("Cookie HMAC exige representação base64url canônica", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const last = cookie.at(-1);
+  const changed = alphabet[alphabet.indexOf(last) ^ 1];
+  assert.notEqual(changed, last);
+  const alternate = cookie.slice(0, -1) + changed;
+  // Modificar somente bits de padding não altera os bytes decodificados.
+  const originalMac = cookie.split(".").at(-1);
+  const alternateMac = alternate.split(".").at(-1);
+  assert.deepEqual(Buffer.from(originalMac, "base64url"), Buffer.from(alternateMac, "base64url"));
+  assert.equal((await worker.fetch(request("/api/hoje", "GET", null, alternate), env)).status, 401);
+});
+
 test("Limite de tentativas impede força bruta", async () => {
   const env = fixture();
   for (let i = 0; i < 8; i++) {
