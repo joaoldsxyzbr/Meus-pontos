@@ -9,6 +9,7 @@
 -- mantém exatamente a jornada padrão atual.
 --
 -- Execute somente com backup/inspeção de saldos antes e depois.
+DROP VIEW IF EXISTS banco_horas;
 DROP VIEW IF EXISTS saldo_total;
 DROP VIEW IF EXISTS resumo_diario;
 
@@ -99,3 +100,66 @@ SELECT
     + (SELECT COALESCE(SUM(minutos), 0) FROM ajustes_banco) AS saldo_total_minutos,
   (SELECT COUNT(*) FROM resumo_diario WHERE pendencia IS NOT NULL) AS pendencias,
   (SELECT COUNT(*) FROM resumo_diario WHERE origem = 'falta') AS faltas;
+
+
+-- View legado: ainda pode ser consultada por outros clientes além do PWA.
+-- Preserva a lista apenas das datas com batidas e os nomes originais dos campos.
+CREATE VIEW banco_horas AS
+WITH b AS (
+  SELECT data,
+    MAX(CASE WHEN tipo = 'entrada' THEN horario END) AS entrada,
+    MAX(CASE WHEN tipo = 'ida_intervalo' THEN horario END) AS ida_intervalo,
+    MAX(CASE WHEN tipo = 'volta_intervalo' THEN horario END) AS volta_intervalo,
+    MAX(CASE WHEN tipo = 'saida' THEN horario END) AS saida
+  FROM pontos GROUP BY data
+),
+m AS (
+  SELECT b.*,
+    CAST(substr(entrada, 1, 2) AS INTEGER) * 60 + CAST(substr(entrada, 4, 2) AS INTEGER) AS entrada_min,
+    CAST(substr(ida_intervalo, 1, 2) AS INTEGER) * 60 + CAST(substr(ida_intervalo, 4, 2) AS INTEGER) AS ida_min,
+    CAST(substr(volta_intervalo, 1, 2) AS INTEGER) * 60 + CAST(substr(volta_intervalo, 4, 2) AS INTEGER) AS volta_min,
+    CAST(substr(saida, 1, 2) AS INTEGER) * 60 + CAST(substr(saida, 4, 2) AS INTEGER) AS saida_min,
+    CAST(strftime('%w', data) AS INTEGER) AS dow
+  FROM b
+),
+escala AS (
+  SELECT m.*,
+    CASE
+      WHEN jus.data IS NOT NULL THEN 0
+      WHEN m.dow = 6
+        AND cfg.referencia IS NOT NULL
+        AND length(cfg.referencia) = 10
+        AND date(cfg.referencia) = cfg.referencia
+        AND strftime('%w', cfg.referencia) = '6'
+        AND m.data >= cfg.referencia
+        AND (CAST((julianday(m.data) - julianday(cfg.referencia)) / 7 AS INTEGER) % 2) = 1
+      THEN 0
+      ELSE j.carga_minutos
+    END AS carga_efetiva
+  FROM m
+  JOIN jornada_padrao j ON j.dia_semana = m.dow
+  LEFT JOIN justificativas jus ON jus.data = m.data
+  CROSS JOIN (
+    SELECT (SELECT valor FROM config WHERE chave = 'sabado_trabalhado_inicio') AS referencia
+  ) cfg
+)
+SELECT e.data, e.entrada, e.ida_intervalo, e.volta_intervalo, e.saida,
+  CASE
+    WHEN e.entrada IS NOT NULL AND e.saida IS NOT NULL THEN
+      (e.saida_min - e.entrada_min) -
+      CASE WHEN e.ida_min IS NOT NULL AND e.volta_min IS NOT NULL THEN e.volta_min - e.ida_min ELSE 0 END
+    ELSE NULL
+  END AS total_trabalhado_minutos,
+  CASE WHEN e.entrada IS NOT NULL AND e.saida IS NOT NULL THEN e.carga_efetiva ELSE NULL END AS carga_minutos,
+  CASE WHEN e.entrada IS NOT NULL AND e.saida IS NOT NULL THEN
+    (e.saida_min - e.entrada_min) -
+    CASE WHEN e.ida_min IS NOT NULL AND e.volta_min IS NOT NULL THEN e.volta_min - e.ida_min ELSE 0 END
+    - e.carga_efetiva
+    ELSE NULL
+  END AS saldo_minutos,
+  CASE WHEN e.entrada IS NULL THEN 'sem_entrada'
+       WHEN e.saida IS NULL THEN 'sem_saida'
+       WHEN (e.ida_min IS NULL) <> (e.volta_min IS NULL) THEN 'intervalo_incompleto'
+       ELSE 'ok'
+  END AS pendencia
+FROM escala e;
