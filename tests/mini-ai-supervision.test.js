@@ -41,11 +41,20 @@ test("respeita jornada com folga, justificativa e histórico insuficiente", () =
   assert.ok(!result.findings.some(item => item.code === "INTERVALO_PARCIAL"));
 });
 
+test("indisponibilidade do histórico é explícita sem inventar saldo", () => {
+  const report = auditWorkspace(day(), [], null, [], { history: false });
+  assert.equal(report.checked.historico, false);
+  assert.equal(report.checked.banco, false);
+  assert.ok(report.findings.some(f => f.code === "HISTORICO_INDISPONIVEL"));
+  assert.equal(report.prediction, null);
+});
+
 test("erros de API são classificados sem query string, corpos ou credenciais", () => {
   assert.equal(normalizeApiFailure("/api/login", 500), null);
   assert.equal(normalizeApiFailure("/api/sessao", 401), null);
   assert.equal(normalizeApiFailure("/api/ajustes/123?token=secreto", 0)?.area, "banco");
   assert.equal(normalizeApiFailure("/api/saldo", 401), null);
+  assert.equal(normalizeApiFailure("/api/saldo", 200), null);
   assert.equal(normalizeApiFailure("https://outro.dominio/api/saldo", 500), null);
   const privatePath = "/api/historico?mes=2026-10&senha=NAO_COPIAR";
   const audit = auditWorkspace(day(), [sample()], balance(), [
@@ -66,8 +75,12 @@ test("relatório aceita apenas códigos conhecidos e ignora texto livre", () => 
   const audit = auditWorkspace(day(), [], balance());
   audit.findings.push({ code: "DESCONHECIDO", suggested_action: "senha=segredo" });
   audit.findings[0].suggested_action = "texto privado";
+  audit.findings[0].area = "senha secreta";
+  audit.findings[0].severity = "token privado";
   const report = buildDiagnosticReport(audit);
   assert.ok(!JSON.stringify(report).includes("senha=segredo"));
   assert.ok(!JSON.stringify(report).includes("texto privado"));
+  assert.ok(!JSON.stringify(report).includes("senha secreta"));
+  assert.ok(!JSON.stringify(report).includes("token privado"));
   assert.throws(() => buildDiagnosticReport(null), TypeError);
 });

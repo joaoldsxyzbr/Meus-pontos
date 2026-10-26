@@ -51,12 +51,19 @@ function gate(show) {
   if (show) $("login-user").focus();
 }
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: { ...(options.body ? { "Content-Type": "application/json" } : {}) }
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { ...(options.body ? { "Content-Type": "application/json" } : {}) }
+    });
+  } catch {
+    if (state.authenticated) window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",
+      { detail: { path: path.split("?")[0], status: 0 } }));
+    throw new Error("Falha de conexão com o aplicativo.");
+  }
   let data;
   try { data = await response.json(); } catch { throw new Error("Resposta inválida do servidor."); }
   if (!response.ok) {

@@ -52,10 +52,17 @@ function openForm(item = null) {
   $a("ledger-duration").focus();
 }
 async function request(path, options = {}) {
-  const res = await fetch(path, {
-    ...options, credentials: "same-origin", cache: "no-store",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined
-  });
+  let res;
+  try {
+    res = await fetch(path, {
+      ...options, credentials: "same-origin", cache: "no-store",
+      headers: options.body ? { "Content-Type": "application/json" } : undefined
+    });
+  } catch {
+    window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",
+      { detail: { path: path.split("?")[0].replace(/\/\d+$/, ""), status: 0 } }));
+    throw new Error("Falha de conexão ao acessar os ajustes.");
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status !== 401) window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",

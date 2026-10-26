@@ -7,7 +7,10 @@ function decodeBase64(value) {
   if (!/^[a-zA-Z0-9_-]+$/.test(value) || value.length > 2048) return null;
   try {
     const raw = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-    return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+    const bytes = Uint8Array.from(raw, (character) => character.charCodeAt(0));
+    // Rejeita codificações alternativas com bits de padding não canônicos.
+    // Sem isso, um mesmo HMAC pode aceitar tokens textualmente diferentes.
+    return encodeBase64(bytes) === value ? bytes : null;
   } catch {
     return null;
   }

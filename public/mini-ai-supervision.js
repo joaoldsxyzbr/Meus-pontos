@@ -76,7 +76,7 @@ export function normalizeApiFailure(path, status) {
   let pathname = path.split("?")[0];
   if (/^\/api\/ajustes\/[1-9]\d*$/.test(pathname)) pathname = "/api/ajustes";
   const area = API_AREAS[pathname];
-  if (!area || status === 401) return null;
+  if (!area || status === 401 || (status > 0 && status < 400)) return null;
   return { code: status === 0 ? "API_INDISPONIVEL" : "API_ERRO", area, status };
 }
 
@@ -149,10 +149,10 @@ export function buildDiagnosticReport(audit) {
     },
     findings: audit.findings.filter(item => KNOWN[item.code]).map(item => ({
       code: item.code,
-      area: item.area,
-      severity: item.severity,
-      count: item.count,
-      ...(Number.isInteger(item.http_status) ? { http_status: item.http_status } : {}),
+      area: ["ponto", "historico", "banco", "sistema"].includes(item.area) ? item.area : KNOWN[item.code][0],
+      severity: KNOWN[item.code][1],
+      count: Number.isSafeInteger(item.count) && item.count >= 1 ? Math.min(item.count, 100) : 1,
+      ...(Number.isInteger(item.http_status) && item.http_status >= 0 && item.http_status <= 599 ? { http_status: item.http_status } : {}),
       probable_cause: KNOWN[item.code][3],
       suggested_action: KNOWN[item.code][4]
     }))
