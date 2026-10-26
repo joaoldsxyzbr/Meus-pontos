@@ -134,6 +134,11 @@ test("Chrome real renderiza Ponto, Histórico e Banco em desktop e mobile", { ti
         const result = await browse(binary, "http://127.0.0.1:" + port + "/", width, tmp);
         assert.equal(result.ok, true, JSON.stringify(result));
         assert.equal(result.overflow, false, JSON.stringify(result));
+        if (width === 390) {
+          assert.ok(result.width <= 600, "Chrome não ativou breakpoint mobile: " + JSON.stringify(result));
+        } else {
+          assert.ok(result.width >= 800, "Chrome não ativou breakpoint desktop: " + JSON.stringify(result));
+        }
       } finally { await fs.rm(tmp, { recursive: true, force: true }); }
     }
     assert.ok(apiLog.some(r => r.path === "/api/hoje"));
