@@ -62,7 +62,7 @@ function render(audit) {
   const lines = [];
   const prediction = audit.prediction;
   if (prediction) {
-    lines.push("Previsão neural indicativa: " + prediction.type.replaceAll("_", " ") +
+    lines.push((prediction.method === "neural" ? "Previsão neural indicativa: " : "Referência estatística (rede neural não superou a referência): ") + prediction.type.replaceAll("_", " ") +
       " por volta de " + prediction.time + " (erro médio de validação: " +
       prediction.error_minutes + " min).");
   } else {

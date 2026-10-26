@@ -12,7 +12,7 @@ function history(days=26) {
   });
 }
 function today() {
-  return {date:'2026-10-26', carga_minutos:480, points:[], next_type:'entrada', pendencia:null};
+  return {date:'2026-10-26', carga_minutos:480, usa_intervalo:true, points:[], next_type:'entrada', pendencia:null};
 }
 test('IA não estima sem histórico e não inventa ponto',()=>{
   const data=analyzeAttendance(today(), []);
@@ -29,7 +29,8 @@ test('rede neural aprende horário aproximado sem alterar fonte',()=>{
   assert.ok(result.prediction.time>='06:15'&&result.prediction.time<='07:45',JSON.stringify(result.prediction));
   assert.equal(JSON.stringify({day,rows}),before);
   assert.equal(result.history_days,26);
-  assert.ok(result.validation_mae_minutes<=45);
+  assert.ok(result.prediction.error_minutes<=45);
+  assert.ok(Number.isInteger(result.validation_baseline_mae_minutes));
 });
 test('detecta inconsistência e informa pendências sem vazar horários',()=>{
   const d={...today(),points:[{tipo:'saida',horario:'06:50'}],pendencia:'sem_entrada'};

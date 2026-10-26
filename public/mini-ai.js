@@ -2,7 +2,7 @@
  * Um MLP pequeno aprende padrões de horários para sugerir (nunca gravar) batidas.
  * O banco e as regras de jornada continuam sendo a fonte de verdade.
  */
-export const AI_VERSION = "mini-ia-ponto/0.1.0";
+export const AI_VERSION = "mini-ia-ponto/0.2.0";
 const KINDS = ["entrada", "ida_intervalo", "volta_intervalo", "saida"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -20,13 +20,30 @@ function features(day, kind, previous) {
   const angle = weekday * 2 * Math.PI / 7;
   return [...KINDS.map((name) => Number(name === kind)), Math.sin(angle), Math.cos(angle), previous / 1440];
 }
-function examples(days) {
+function scheduleGroup(date) {
+  const day = weekDay(date);
+  if (day === null) return null;
+  return day === 6 ? "sabado" : day === 0 ? "domingo" : "semana";
+}
+function cohortForDay(date, usesInterval) {
+  const group = scheduleGroup(date);
+  if (group === null || typeof usesInterval !== "boolean") return null;
+  return (usesInterval ? "intervalo:" : "direta:") + group;
+}
+function examples(days, beforeDate, cohort) {
+  if (!cohort) return [];
   const result = [];
+  const seen = new Set();
   for (const row of days) {
-    if (!row || weekDay(row.data) === null || row.pendencia || Number(row.carga_prevista) <= 0) continue;
+    if (!row || typeof row.data !== "string" || row.data >= beforeDate ||
+      weekDay(row.data) === null || seen.has(row.data) || row.pendencia ||
+      ["justificada", "nao_trabalhado", "falta"].includes(row.origem) ||
+      !Number.isFinite(Number(row.carga_prevista)) || Number(row.carga_prevista) <= 0) continue;
     const complete = row.entrada && row.saida && Boolean(row.ida_intervalo) === Boolean(row.volta_intervalo);
     if (!complete) continue;
-    const sequence = row.ida_intervalo ? KINDS : ["entrada", "saida"];
+    const withInterval = Boolean(row.ida_intervalo);
+    if (cohortForDay(row.data, withInterval) !== cohort) continue;
+    const sequence = withInterval ? KINDS : ["entrada", "saida"];
     let previous = -1;
     const candidate = [];
     for (const kind of sequence) {
@@ -35,11 +52,18 @@ function examples(days) {
       candidate.push({ day: row.data, kind, x: features(row.data, kind, Math.max(0, previous)), y: minutes / 1440 });
       previous = minutes;
     }
-    if (candidate.length === sequence.length) result.push(...candidate);
+    if (candidate.length === sequence.length) {
+      seen.add(row.data);
+      result.push(...candidate);
+    }
   }
   return result;
 }
-
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 function network(seed = 41) {
   const rand = () => {
     seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
@@ -82,12 +106,19 @@ export function analyzeAttendance(day, history) {
   if (!day || !Array.isArray(day.points) || !Array.isArray(history)) throw new TypeError("Dados de jornada inválidos");
   const issues = [];
   const add = (severity, code, detail) => issues.push({ severity, code, detail });
-  const expected = day.carga_minutos > 0 ? (day.points.some(p => p.tipo?.includes("intervalo")) || day.next_type?.includes("intervalo") ? KINDS : ["entrada", "saida"]) : [];
+  const usesInterval = typeof day.usa_intervalo === "boolean" ? day.usa_intervalo : null;
+  // Para dados antigos sem essa propriedade, ainda validamos a ordem,
+  // mas não treinamos sem saber qual escala o D1 definiu.
+  const expected = day.carga_minutos > 0 ? ((usesInterval === true ||
+    day.points.some(p => p.tipo?.includes("intervalo")) ||
+    day.next_type?.includes("intervalo")) ? KINDS : ["entrada", "saida"]) : [];
   let previous = -1;
+  let inconsistent = false;
   for (let index = 0; index < day.points.length; index++) {
     const point = day.points[index];
     const time = timeMinutes(point.horario);
     if (time === null || time <= previous || point.tipo !== expected[index]) {
+      inconsistent = true;
       add("alerta", "SEQUENCIA_INCONSISTENTE", "Ordem ou horários das batidas precisam de conferência.");
       break;
     }
@@ -95,44 +126,63 @@ export function analyzeAttendance(day, history) {
   }
   if (day.pendencia) add("atencao", "PENDENCIA_OFICIAL", "O resumo diário do banco informa uma pendência.");
   const pendingDays = history.filter(row => row?.pendencia).length;
-  if (pendingDays) add("atencao", "HISTORICO_PENDENTE", `${pendingDays} dia(s) com pendências no período consultado.`);
+  if (pendingDays) add("atencao", "HISTORICO_PENDENTE", pendingDays + " dia(s) com pendências no período consultado.");
   if (!day.next_type && day.carga_minutos > 0 && day.points.length === 0 && !day.pendencia) {
     add("info", "SEM_PROXIMA_BATIDA", "Sem próxima batida habilitada. Confira a escala e os registros oficiais.");
   }
 
-  const samples = examples(history);
+  // Treinar exclusivamente com jornadas anteriores, mesma modalidade
+  // de intervalo e mesma categoria de dia (semana, sábado ou domingo).
+  const samples = examples(history, day.date, cohortForDay(day.date, usesInterval));
   const dates = [...new Set(samples.map(p => p.day))].sort();
   const cutoff = Math.max(1, Math.floor(dates.length * 0.8));
   const trainDates = new Set(dates.slice(0, cutoff));
   const training = samples.filter(p => trainDates.has(p.day));
   const validation = samples.filter(p => !trainDates.has(p.day));
+
   let prediction = null;
-  let mae = null;
-  const enough = dates.length >= 10 && validation.length > 0 && day.next_type && KINDS.includes(day.next_type) &&
-    training.filter(p => p.kind === day.next_type).length >= 6 && validation.some(p => p.kind === day.next_type);
-  if (enough && weekDay(day.date) !== null) {
+  let neuralMae = null;
+  let baselineMae = null;
+  let validationSamples = 0;
+  const kind = day.next_type;
+  const trainKind = training.filter(p => p.kind === kind);
+  const validationKind = validation.filter(p => p.kind === kind);
+  const enough = !inconsistent && dates.length >= 10 && trainKind.length >= 6 &&
+    validationKind.length >= 3 && KINDS.includes(kind);
+  if (enough) {
+    // Baseline estatístico simples: referência de segurança, não um
+    // substituto silencioso da rede neural.
+    const baseline = median(trainKind.map(p => p.y));
+    baselineMae = Math.round(validationKind.reduce((sum, p) => sum + Math.abs(baseline - p.y) * 1440, 0) / validationKind.length);
     const model = train(training);
-    const checking = validation.filter(p => p.kind === day.next_type);
-    mae = Math.round(checking.reduce((sum, p) => sum + Math.abs(forward(model, p.x).out - p.y) * 1440, 0) / checking.length);
-    if (mae <= 45) {
-      const x = features(day.date, day.next_type, Math.max(0, previous));
-      const inferred = Math.round(forward(model, x).out * 1440 / 5) * 5;
-      // Nunca propor um horário anterior à última batida, nem fora do dia.
+    neuralMae = Math.round(validationKind.reduce((sum, p) =>
+      sum + Math.abs(forward(model, p.x).out - p.y) * 1440, 0) / validationKind.length);
+    validationSamples = validationKind.length;
+    const candidate = neuralMae <= baselineMae + 5 && neuralMae <= 45
+      ? { source: "neural", error: neuralMae, value: forward(model, features(day.date, kind, Math.max(0, previous))).out }
+      : baselineMae <= 45
+        ? { source: "referencia_estatistica", error: baselineMae, value: baseline }
+        : null;
+    if (candidate) {
+      const inferred = Math.round(candidate.value * 1440 / 5) * 5;
+      // Nunca sugerir batida anterior à última registrada.
       if (inferred > previous && inferred < 1440) {
         const label = String(Math.floor(inferred / 60)).padStart(2, "0") + ":" + String(inferred % 60).padStart(2, "0");
-        prediction = { type: day.next_type, time: label, error_minutes: mae };
+        prediction = { type: kind, time: label, method: candidate.source, error_minutes: candidate.error };
       }
     }
   }
-  if (!prediction && day.next_type) add("info", "SEM_PREVISAO_SEGURA", "A IA ainda não tem histórico validado suficiente para estimar a próxima batida.");
+  if (!prediction && kind) add("info", "SEM_PREVISAO_SEGURA", "A IA ainda não tem histórico validado suficiente para estimar a próxima batida.");
   return {
     version: AI_VERSION,
-    source: "inferência neural local; D1 permanece oficial",
+    source: "inferência neural local com verificação estatística; D1 permanece oficial",
     date: day.date,
     history_days: history.length,
     training_days: dates.length,
     training_samples: training.length,
-    validation_mae_minutes: mae,
+    validation_samples: validationSamples,
+    validation_mae_minutes: neuralMae,
+    validation_baseline_mae_minutes: baselineMae,
     prediction,
     findings: issues
   };

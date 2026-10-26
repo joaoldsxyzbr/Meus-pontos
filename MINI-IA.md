@@ -6,7 +6,7 @@ Modelo neural MLP de uma camada oculta (7 entradas, 10 neurônios ocultos, 1 sa�
 
 **Não faz:** escolher a próxima categoria oficial, alterar relógio, registrar batidas, corrigir faltas/saldo, gravar no D1, decidir jornada, enviar informações a terceiros ou se reprogramar. Os dados e as regras oficiais permanecem no Worker/D1.
 
-A previsão só aparece com pelo menos 10 dias válidos e amostras suficientes do mesmo evento em treino e validação (separação cronológica 80/20). Sem confiança, informa que não é possível prever. O histórico individual não é usado como prova do horário que deve ser registrado: a sugestão é apenas indicativa.
+A previsão usa **apenas jornadas anteriores ao dia analisado**, com a mesma modalidade de intervalo e o mesmo grupo de dia (semana, sábado ou domingo). Exige ao menos 10 jornadas da mesma categoria, 6 amostras de treino e 3 de validação para a batida, divididas cronologicamente em 80/20. Com histórico insuficiente, não prevê. A rede neural é comparada a uma referência estatística (mediana da própria categoria): se a rede tiver erro maior, a interface identifica claramente a estimativa alternativa como estatística, nunca como neural. Ambas exigem erro médio de validação até 45 minutos. Sem confiança, informa que não é possível prever. O histórico individual não é usado como prova do horário que deve ser registrado: a sugestão é apenas indicativa.
 
 O botão **Copiar diagnóstico** produz um JSON com versão, contagens, erro de validação, previsão e códigos explicados. Não inclui nome do usuário, batidas originais, motivos, credenciais nem cookies. Compartilhamento é exclusivamente manual. A IA não cria observabilidade externa ou logs persistentes.
 

@@ -102,7 +102,9 @@ test("Login aceita credenciais corretas e autentica as três telas", async () =>
   const session = await worker.fetch(request("/api/sessao", "GET", null, cookie), env);
   assert.deepEqual(await session.json(), { autenticado: true, usuario: USER });
   const today = await worker.fetch(request("/api/hoje", "GET", null, cookie), env);
-  assert.equal((await today.json()).next_type, "saida");
+  const todayData = await today.json();
+  assert.equal(todayData.next_type, "saida");
+  assert.equal(todayData.usa_intervalo, true);
   const history = await worker.fetch(request("/api/historico?mes=2026-10", "GET", null, cookie), env);
   assert.equal(history.status, 200);
   const balance = await worker.fetch(request("/api/saldo", "GET", null, cookie), env);

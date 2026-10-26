@@ -57,6 +57,7 @@ async function today(env) {
     points: rows,
     next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
     carga_minutos: schedule?.carga_minutos || 0,
+    usa_intervalo: Boolean(schedule?.usa_intervalo),
     total_trabalhado_minutos: day?.total_trabalhado_minutos ?? null,
     saldo_minutos: day?.saldo_minutos ?? null,
     pendencia: day?.pendencia || null

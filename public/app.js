@@ -109,8 +109,9 @@ function drawToday(day) {
   $("register").textContent = day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() : complete ? "Jornada concluída" : "Registro indisponível";
   $("point-hint").textContent = day.next_type ? "Confira o horário antes de registrar." : complete ? "Todas as batidas de hoje estão salvas." : "Nenhum novo registro disponível.";
   const isSaturday = new Date(day.date + "T12:00:00Z").getUTCDay() === 6;
-  const expected = day.carga_minutos === 0 ? [] : isSaturday ?
-    ["entrada", "saida"] : ["entrada", "ida_intervalo", "volta_intervalo", "saida"];
+  const usesInterval = typeof day.usa_intervalo === "boolean" ? day.usa_intervalo : !isSaturday;
+  const expected = day.carga_minutos === 0 ? [] : usesInterval ?
+    ["entrada", "ida_intervalo", "volta_intervalo", "saida"] : ["entrada", "saida"];
   const container = $("steps");
   container.replaceChildren();
   if (!expected.length) {
