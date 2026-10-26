@@ -101,16 +101,19 @@ async function analyze() {
   if (id !== revision) return;
   const historyAvailable = results[0].status === "fulfilled" && results[1].status === "fulfilled" &&
     Array.isArray(results[0].value?.days) && Array.isArray(results[1].value?.days);
-  const aggregate = historyAvailable ? [...results[0].value.days, ...results[1].value.days] : [];
-  if (selectedHistory?.days && Array.isArray(selectedHistory.days)) aggregate.push(...selectedHistory.days);
-  // A consulta de um mês aberto pode repetir as mesmas datas: manter só a versão mais recente.
-  const unique = [...new Map(aggregate.filter(item => item && typeof item.data === "string")
+  const recent = historyAvailable ? [...results[1].value.days, ...results[0].value.days] : [];
+  // Treino limitado aos meses recentes. Histórico selecionado serve apenas à auditoria.
+  const uniqueByDay = rows => [...new Map(rows.filter(item => item && typeof item.data === "string")
     .map(item => [item.data, item])).values()];
+  const trainingDays = uniqueByDay(recent);
+  // Registros recém-consultados prevalecem sobre versões de uma visita anterior.
+  const selectedDays = Array.isArray(selectedHistory?.days) ? selectedHistory.days : [];
+  const inspected = uniqueByDay([...selectedDays, ...recent]);
   // Não reutilizar saldo possivelmente desatualizado após falha na consulta.
   const balance = results[2].status === "fulfilled" ? results[2].value : null;
   try {
-    currentReport = auditWorkspace(currentDay, unique, balance, failures,
-      { history: historyAvailable });
+    currentReport = auditWorkspace(currentDay, inspected, balance, failures,
+      { history: historyAvailable }, trainingDays);
     render(currentReport);
   } catch {
     status.textContent = "Análise indisponível";

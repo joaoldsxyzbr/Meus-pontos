@@ -81,11 +81,16 @@ export function normalizeApiFailure(path, status) {
 }
 
 /** Produces a bounded, non-sensitive diagnostic from current authorized data. */
-export function auditWorkspace(day, history, balance, apiFailures = [], availability = {}) {
-  if (!Array.isArray(history)) throw new TypeError("Histórico inválido.");
+export function auditWorkspace(day, history, balance, apiFailures = [], availability = {}, learningHistory = history) {
+  if (!Array.isArray(history) || !Array.isArray(learningHistory)) throw new TypeError("Histórico inválido.");
   const historyAvailable = availability.history !== false;
-  const neural = analyzeAttendance(day, historyAvailable ? history : []);
-  const findings = neural.findings.map(entry => makeFinding(entry.code)).filter(Boolean);
+  // Meses consultados para fiscalização não devem reescrever o conjunto de treino.
+  const neural = analyzeAttendance(day, historyAvailable ? learningHistory : []);
+  const findings = neural.findings
+    .filter(entry => entry.code !== "HISTORICO_PENDENTE")
+    .map(entry => makeFinding(entry.code)).filter(Boolean);
+  const pendingDays = history.filter(row => row?.pendencia).length;
+  if (pendingDays) findings.push(makeFinding("HISTORICO_PENDENTE", pendingDays));
   if (!historyAvailable) findings.push(makeFinding("HISTORICO_INDISPONIVEL"));
   const { disorder, partial } = auditHistory(history);
   if (disorder) findings.push(makeFinding("HISTORICO_FORA_ORDEM", disorder));
