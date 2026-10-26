@@ -71,6 +71,31 @@ class ScheduleMigrationTests(unittest.TestCase):
         count = self.db.execute("SELECT COUNT(*) FROM pontos").fetchone()[0]
         self.assertEqual(count, 2)
 
+    def test_visao_legada_conciliada_com_resumo_diario(self):
+        self.db.execute("INSERT INTO config VALUES ('sabado_trabalhado_inicio','2025-06-21')")
+        self.db.executemany("INSERT INTO pontos(data,tipo,horario) VALUES (?,?,?)", [
+            ("2025-06-28","entrada","07:00"),
+            ("2025-06-28","saida","11:00")
+        ])
+        official = self.db.execute(
+            "SELECT carga_prevista,saldo_minutos FROM resumo_diario WHERE data='2025-06-28'"
+        ).fetchone()
+        legacy = self.db.execute(
+            "SELECT carga_minutos,saldo_minutos FROM banco_horas WHERE data='2025-06-28'"
+        ).fetchone()
+        self.assertEqual(official, (0,240))
+        self.assertEqual(legacy, official)
+        self.assertEqual(
+            self.db.execute("SELECT COUNT(*) FROM pontos WHERE data='2025-06-28'").fetchone()[0], 2
+        )
+
+    def test_visao_legada_mantem_campos_e_semantica_de_pendencias(self):
+        self.db.execute("INSERT INTO pontos(data,tipo,horario) VALUES ('2025-06-20','entrada','07:00')")
+        row = self.db.execute(
+            "SELECT carga_minutos, saldo_minutos, pendencia FROM banco_horas WHERE data='2025-06-20'"
+        ).fetchone()
+        self.assertEqual(row, (None,None,"sem_saida"))
+
     def test_saldo_consolidado_consistente(self):
         self.db.execute("INSERT INTO ajustes_banco(data,minutos,motivo) VALUES ('2025-06-20',30,'ajuste')")
         subtotal, adjustments, total, *_ = self.db.execute("SELECT * FROM saldo_total").fetchone()

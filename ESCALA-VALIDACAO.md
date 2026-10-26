@@ -28,3 +28,5 @@ O Worker e a migração SQL estão preparados na branch de desenvolvimento. Nenh
 - GitHub Actions executa ambos. Nenhum deles substitui o teste visual real no Chrome/Android/iOS nem o teste com cópia do D1.
 
 Nenhum formulário de justificativas ou configuração de ciclo foi incorporado à interface neste PR. Essas operações devem ser auditáveis antes de serem expostas no aplicativo.
+
+Observação de compatibilidade: a migração também recria a visão legada banco_horas, presente no D1 real, preservando seus campos e pendências. Consultas externas dessa visão precisam ser validadas em cópia antes de publicar.

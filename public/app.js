@@ -103,7 +103,9 @@ function drawToday(day) {
   state.day = day;
   $("today-date").textContent = displayDate(day.date, true);
   const complete = !day.next_type && day.carga_minutos > 0 && !day.pendencia;
-  $("today-status").textContent = complete ? "Concluído" : day.carga_minutos === 0 ? "Folga" : "Em andamento";
+  const dayLabels = {feriado:"Feriado",atestado:"Atestado",dispensa:"Dispensa",folga:"Folga justificada",ferias:"Férias"};
+  $("today-status").textContent = day.justificativa ? (dayLabels[day.justificativa] || "Justificado") :
+    complete ? "Concluído" : day.carga_minutos === 0 ? "Folga" : "Em andamento";
   $("today-status").classList.toggle("done", complete);
   $("register").disabled = state.busy || !day.next_type;
   $("register").textContent = day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() : complete ? "Jornada concluída" : "Registro indisponível";
