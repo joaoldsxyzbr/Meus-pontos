@@ -223,6 +223,13 @@ function chooseTab(name) {
   });
   refresh();
 }
+// Mini IA pode carregar depois da restauração rápida da sessão.
+ // Reenvia apenas o estado atual, sem consultar API ou alterar registros.
+window.addEventListener("meus-pontos:mini-ia-iniciada", () => {
+  if (state.authenticated && state.day) {
+    window.dispatchEvent(new CustomEvent("meus-pontos:dia-atualizado", { detail: state.day }));
+  }
+});
 $("minus").addEventListener("click", () => adjustTime(-1));
 $("plus").addEventListener("click", () => adjustTime(1));
 $("reset-time").addEventListener("click", () => { state.chosen = null; drawClock(); });

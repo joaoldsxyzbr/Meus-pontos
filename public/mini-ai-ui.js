@@ -166,3 +166,7 @@ copyButton.addEventListener("click", async () => {
     status.textContent = "Cópia indisponível neste navegador. Tente atualizar a página.";
   }
 });
+
+// Informa à tela principal que seus listeners já estão registrados.
+// Evita perder o primeiro carregamento do dia em conexões lentas.
+window.dispatchEvent(new Event("meus-pontos:mini-ia-iniciada"));
