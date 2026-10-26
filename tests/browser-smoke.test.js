@@ -16,7 +16,12 @@ const smokeScript = String.raw`
     const e = document.createElement("output");
     e.id = "__browser_smoke";
     e.textContent = JSON.stringify({ ok, issue, stage, width: innerWidth,
-      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 3 });
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 3,
+      miniAi: document.querySelector("#mini-ai-status")?.textContent,
+      today: document.querySelector("#today-date")?.textContent,
+      gate: document.querySelector("#gate-error")?.textContent,
+      gateHidden: document.querySelector("#gate")?.hidden,
+      resources: [...document.scripts].map(x=>x.src?.split("/").at(-1)) });
     document.body.append(e);
   };
   const wait = async (predicate) => {
