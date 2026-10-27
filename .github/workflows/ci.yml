@@ -18,6 +18,8 @@ jobs:
           node-version: '22'
       - name: Testar JavaScript sem dependências
         run: npm test
+      - name: Testar navegação no Chrome headless
+        run: node --test scripts/browser-smoke.mjs
       - name: Validar migração SQLite sem acessar produção
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Verificar sintaxe
@@ -25,6 +27,7 @@ jobs:
           node --check src/worker.js
           node --check src/auth.js
           node --check src/schedule.js
+          node --check scripts/browser-smoke.mjs
           node --check public/app.js
           node --check public/sw.js
           node --check public/mini-ai.js
