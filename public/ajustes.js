@@ -52,12 +52,23 @@ function openForm(item = null) {
   $a("ledger-duration").focus();
 }
 async function request(path, options = {}) {
-  const res = await fetch(path, {
-    ...options, credentials: "same-origin", cache: "no-store",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined
-  });
+  let res;
+  try {
+    res = await fetch(path, {
+      ...options, credentials: "same-origin", cache: "no-store",
+      headers: options.body ? { "Content-Type": "application/json" } : undefined
+    });
+  } catch {
+    window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",
+      { detail: { path: path.split("?")[0].replace(/\/\d+$/, ""), status: 0 } }));
+    throw new Error("Falha de conexão ao acessar os ajustes.");
+  }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Não foi possível completar a operação.");
+  if (!res.ok) {
+    if (res.status !== 401) window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",
+      { detail: { path: path.split("?")[0].replace(/\/\d+$/, ""), status: res.status } }));
+    throw new Error(data.error || "Não foi possível completar a operação.");
+  }
   return data;
 }
 function alertUser(message) {
@@ -132,6 +143,7 @@ async function reloadBalance() {
   set("balance-absences", data.faltas, false);
   set("balance-pending", data.pendencias, false);
   $a("balance-status").textContent = data.saldo_total_minutos > 0 ? "Horas a favor" : data.saldo_total_minutos < 0 ? "Horas a compensar" : "Banco de horas zerado";
+  window.dispatchEvent(new CustomEvent("meus-pontos:saldo-atualizado", { detail: data }));
 }
 async function reload() { await Promise.all([loadLedger(), reloadBalance()]); }
 async function save(event) {

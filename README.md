@@ -64,9 +64,22 @@ Para trocar a senha, gere novas credenciais com o script e atualize **os três s
 npm test
 ```
 
-Os testes usam somente recursos nativos do Node.js. O GitHub Actions valida testes e sintaxe.
+Os testes de lógica usam Node.js nativo; os de migração usam Python/SQLite nativos. O GitHub Actions executa também um smoke test em Chrome headless (`node --test scripts/browser-smoke.mjs`) com API simulada. Rodar `npm test` localmente não exige Chrome.
 
 ## Observações
 
-- O primeiro usuário **ainda precisa ser configurado e o Worker publicado** para o login funcionar em produção.
-- As jornadas continuam usando `jornada_padrao`, `resumo_diario` e `saldo_total` do D1; a regra de sábado intercalado ainda não foi implementada no banco.
+- Na Cloudflare conectada, os bindings D1, rate limiter e secrets de login existem; isso não comprova que o login real funciona.
+- A branch experimental prepara uma migração de views para sábados alternados e justificativas. **Ela não foi aplicada ao D1 de produção.**
+- Não publicar o Worker experimental antes de testar e validar essa migração numa cópia do D1.
+
+## Mini IA local (experimental)
+
+A mini IA própria do projeto é uma pequena rede neural treinada no navegador com jornadas completas dos dois últimos meses. Ela estima horários somente se houver dados suficientes e erro de validação aceitável, identifica pendências e oferece diagnóstico para copiar manualmente. **Nunca altera pontos ou saldo**, nem envia dados para provedores de IA. Veja [MINI-IA.md](MINI-IA.md).
+
+## Escala e migração do D1
+
+A migração em `migrations/0001_escala_justificativas.sql` atualiza apenas as views; não modifica registros de pontos. Sábados alternados só são ativados após informar uma data confirmada para `sabado_trabalhado_inicio`. Sem referência, os sábados permanecem iguais à jornada padrão atual.
+
+**Não aplicar diretamente na produção.** Fazer backup, testar em cópia do D1, comparar saldos e confirmar feriados e justificativas. Datas justificadas que também contenham batidas podem ter seus saldos alterados quando a migração for aplicada; requer conferência.
+
+Veja [ESCALA-VALIDACAO.md](ESCALA-VALIDACAO.md).

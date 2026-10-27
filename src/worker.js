@@ -1,6 +1,7 @@
 import { brazilNow, weekday, nextType, validTime, validMonth } from "./logic.js";
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 import { adjustmentsApi } from "./adjustments.js";
+import { effectiveSchedule } from "./schedule.js";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -43,10 +44,20 @@ async function login(request, env) {
   return json({ ok: true, usuario: env.PONTO_USERNAME }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
+async function scheduleForDate(env, date) {
+  const row = await env.DB.prepare(
+    "SELECT j.carga_minutos, j.usa_intervalo, " +
+    "(SELECT valor FROM config WHERE chave = 'sabado_trabalhado_inicio') AS sabado_referencia, " +
+    "(SELECT tipo FROM justificativas WHERE data = ?) AS justificativa " +
+    "FROM jornada_padrao j WHERE j.dia_semana = ?"
+  ).bind(date, weekday(date)).first();
+  return effectiveSchedule(date, row || {});
+}
+
 async function today(env) {
   const now = brazilNow();
   const [schedule, points, day] = await Promise.all([
-    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
+    scheduleForDate(env, now.date),
     env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all(),
     env.DB.prepare("SELECT total_trabalhado_minutos, carga_prevista, saldo_minutos, pendencia FROM resumo_diario WHERE data = ?").bind(now.date).first()
   ]);
@@ -55,8 +66,10 @@ async function today(env) {
     date: now.date,
     now: now.time,
     points: rows,
-    next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
-    carga_minutos: schedule?.carga_minutos || 0,
+    next_type: nextType(rows, schedule.usa_intervalo, schedule.carga_minutos),
+    carga_minutos: schedule.carga_minutos,
+    usa_intervalo: schedule.usa_intervalo,
+    justificativa: schedule.justificativa,
     total_trabalhado_minutos: day?.total_trabalhado_minutos ?? null,
     saldo_minutos: day?.saldo_minutos ?? null,
     pendencia: day?.pendencia || null
@@ -75,11 +88,11 @@ async function register(request, env) {
   const now = brazilNow();
 
   const [schedule, result] = await Promise.all([
-    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
+    scheduleForDate(env, now.date),
     env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all()
   ]);
   const rows = result.results || [];
-  const type = nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0);
+  const type = nextType(rows, schedule.usa_intervalo, schedule.carga_minutos);
   if (!type) return json({ error: "Jornada completa, dia de folga ou batidas inconsistentes." }, 409);
   if (rows.length && time <= rows[rows.length - 1].horario) {
     return json({ error: "Horário deve ser posterior à batida anterior." }, 400);

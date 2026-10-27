@@ -10,9 +10,11 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/ajustes.css">
+  <link rel="stylesheet" href="/mini-ai.css">
   <title>Meus Pontos</title>
   <script type="module" src="/app.js"></script>
   <script type="module" src="/ajustes.js"></script>
+  <script type="module" src="/mini-ai-ui.js"></script>
 </head>
 <body>
   <header class="header">
@@ -71,6 +73,23 @@
         <div class="metric"><span>Pendências</span><strong id="balance-pending">—</strong></div>
       </div>
       <p class="note">O saldo considera as jornadas fechadas, as faltas não justificadas e os ajustes cadastrados no banco.</p>
+    </section>
+    <section class="card mini-ai-card" aria-labelledby="mini-ai-title">
+      <div class="mini-ai-heading">
+        <h2 id="mini-ai-title">Mini IA <span class="mini-ai-beta">EXPERIMENTAL</span></h2>
+        <span class="mini-ai-scope">Ponto · Histórico · Banco de horas</span>
+      </div>
+      <strong class="mini-ai-state" id="mini-ai-status" role="status">Aguardando análise</strong>
+      <p class="muted mini-ai-detail" id="mini-ai-detail" aria-live="polite">A IA observa o aplicativo neste dispositivo. Não altera registros oficiais.</p>
+      <details id="mini-ai-details" class="mini-ai-details">
+        <summary>Ver diagnóstico e recomendações</summary>
+        <div id="mini-ai-findings" class="mini-ai-findings"><p class="muted">Ainda não há diagnóstico.</p></div>
+      </details>
+      <div class="mini-ai-actions">
+        <button type="button" id="mini-ai-analyze">Reanalisar agora</button>
+        <button type="button" id="mini-ai-copy" disabled>Copiar relatório técnico</button>
+      </div>
+      <p class="muted mini-ai-disclaimer">Supervisão local, sem salvar logs nem enviar dados a serviços de IA. Horários sugeridos não são batidas oficiais.</p>
     </section>
   </main>
 

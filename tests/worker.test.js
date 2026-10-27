@@ -13,7 +13,7 @@ const RECORD = "v1:100000:" + SALT.toString("base64url") + ":" +
 const SESSION_SECRET = Buffer.alloc(32, 5).toString("base64url");
 const TEST_TIME = "00:03";
 
-function fixture() {
+function fixture(scheduleOverrides = {}) {
   const date = brazilNow().date;
   const points = [
     { tipo: "entrada", horario: "00:00" },
@@ -28,7 +28,7 @@ function fixture() {
       return {
         bind(...values) { params = values; return this; },
         async first() {
-          if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1 };
+          if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1, ...scheduleOverrides };
           if (sql.includes("FROM resumo_diario") && sql.includes("WHERE data =")) {
             return { total_trabalhado_minutos: inserted ? 513 : null, saldo_minutos: inserted ? 33 : null, pendencia: inserted ? null : "sem_saida" };
           }
@@ -102,7 +102,9 @@ test("Login aceita credenciais corretas e autentica as três telas", async () =>
   const session = await worker.fetch(request("/api/sessao", "GET", null, cookie), env);
   assert.deepEqual(await session.json(), { autenticado: true, usuario: USER });
   const today = await worker.fetch(request("/api/hoje", "GET", null, cookie), env);
-  assert.equal((await today.json()).next_type, "saida");
+  const todayData = await today.json();
+  assert.equal(todayData.next_type, "saida");
+  assert.equal(todayData.usa_intervalo, true);
   const history = await worker.fetch(request("/api/historico?mes=2026-10", "GET", null, cookie), env);
   assert.equal(history.status, 200);
   const balance = await worker.fetch(request("/api/saldo", "GET", null, cookie), env);
@@ -118,6 +120,21 @@ test("Cookie adulterado é rejeitado e sair remove cookie", async () => {
   const logout = await worker.fetch(request("/api/sair", "POST", {}, cookie), env);
   assert.equal(logout.status, 200);
   assert.match(logout.headers.get("Set-Cookie"), /Max-Age=0/);
+});
+
+test("Cookie HMAC exige representação base64url canônica", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const last = cookie.at(-1);
+  const changed = alphabet[alphabet.indexOf(last) ^ 1];
+  assert.notEqual(changed, last);
+  const alternate = cookie.slice(0, -1) + changed;
+  // Modificar somente bits de padding não altera os bytes decodificados.
+  const originalMac = cookie.split(".").at(-1);
+  const alternateMac = alternate.split(".").at(-1);
+  assert.deepEqual(Buffer.from(originalMac, "base64url"), Buffer.from(alternateMac, "base64url"));
+  assert.equal((await worker.fetch(request("/api/hoje", "GET", null, alternate), env)).status, 401);
 });
 
 test("Limite de tentativas impede força bruta", async () => {
@@ -165,4 +182,15 @@ test("Arquivos públicos preservam política CSP e não exibem segredos", async 
   const response = await worker.fetch(new Request(ORIGIN + "/"), fixture());
   assert.equal(response.status, 200);
   assert.ok(response.headers.get("Content-Security-Policy").includes("script-src 'self'"));
+});
+test("API bloqueia nova batida em feriado justificado", async () => {
+  const env=fixture({justificativa:"feriado"});
+  const cookie=await authenticate(env);
+  const day=await (await worker.fetch(request("/api/hoje","GET",null,cookie),env)).json();
+  assert.equal(day.carga_minutos,0);
+  assert.equal(day.justificativa,"feriado");
+  assert.equal(day.next_type,null);
+  const res=await worker.fetch(request("/api/pontos","POST",{horario:"23:00"},cookie),env);
+  assert.equal(res.status,409);
+  assert.equal(env.inserted,0);
 });

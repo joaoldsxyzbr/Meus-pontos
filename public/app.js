@@ -51,15 +51,25 @@ function gate(show) {
   if (show) $("login-user").focus();
 }
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: { ...(options.body ? { "Content-Type": "application/json" } : {}) }
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { ...(options.body ? { "Content-Type": "application/json" } : {}) }
+    });
+  } catch {
+    if (state.authenticated) window.dispatchEvent(new CustomEvent("meus-pontos:api-falha",
+      { detail: { path: path.split("?")[0], status: 0 } }));
+    throw new Error("Falha de conexão com o aplicativo.");
+  }
   let data;
   try { data = await response.json(); } catch { throw new Error("Resposta inválida do servidor."); }
   if (!response.ok) {
+    if (state.authenticated && path !== "/api/sessao" && path !== "/api/login" && response.status !== 401) {
+      window.dispatchEvent(new CustomEvent("meus-pontos:api-falha", { detail: { path: path.split("?")[0], status: response.status } }));
+    }
     if (response.status === 401 && path !== "/api/login") {
       state.authenticated = false;
       gate(true);
@@ -93,14 +103,17 @@ function drawToday(day) {
   state.day = day;
   $("today-date").textContent = displayDate(day.date, true);
   const complete = !day.next_type && day.carga_minutos > 0 && !day.pendencia;
-  $("today-status").textContent = complete ? "Concluído" : day.carga_minutos === 0 ? "Folga" : "Em andamento";
+  const dayLabels = {feriado:"Feriado",atestado:"Atestado",dispensa:"Dispensa",folga:"Folga justificada",ferias:"Férias"};
+  $("today-status").textContent = day.justificativa ? (dayLabels[day.justificativa] || "Justificado") :
+    complete ? "Concluído" : day.carga_minutos === 0 ? "Folga" : "Em andamento";
   $("today-status").classList.toggle("done", complete);
   $("register").disabled = state.busy || !day.next_type;
   $("register").textContent = day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() : complete ? "Jornada concluída" : "Registro indisponível";
   $("point-hint").textContent = day.next_type ? "Confira o horário antes de registrar." : complete ? "Todas as batidas de hoje estão salvas." : "Nenhum novo registro disponível.";
   const isSaturday = new Date(day.date + "T12:00:00Z").getUTCDay() === 6;
-  const expected = day.carga_minutos === 0 ? [] : isSaturday ?
-    ["entrada", "saida"] : ["entrada", "ida_intervalo", "volta_intervalo", "saida"];
+  const usesInterval = typeof day.usa_intervalo === "boolean" ? day.usa_intervalo : !isSaturday;
+  const expected = day.carga_minutos === 0 ? [] : usesInterval ?
+    ["entrada", "ida_intervalo", "volta_intervalo", "saida"] : ["entrada", "saida"];
   const container = $("steps");
   container.replaceChildren();
   if (!expected.length) {
@@ -119,6 +132,7 @@ function drawToday(day) {
   $("day-balance").textContent = minutesText(day.saldo_minutos, true);
   signClass($("day-balance"), day.saldo_minutos);
   drawClock();
+  window.dispatchEvent(new CustomEvent('meus-pontos:dia-atualizado', { detail: day }));
 }
 async function loadToday() {
   const day = await api("/api/hoje");
@@ -154,6 +168,7 @@ async function loadHistory() {
   } else days.forEach((item) => list.append(historyRow(item)));
   const total = days.reduce((sum, item) => sum + (item.saldo_minutos || 0), 0);
   $("history-summary").textContent = days.length + " dias no período · Saldo " + minutesText(total, true);
+  window.dispatchEvent(new CustomEvent("meus-pontos:historico-atualizado", { detail: { month, days } }));
 }
 async function loadBalance() {
   const data = await api("/api/saldo");
@@ -165,6 +180,7 @@ async function loadBalance() {
   $("balance-status").textContent = data.saldo_total_minutos > 0 ? "Horas a favor" : data.saldo_total_minutos < 0 ? "Horas a compensar" : "Banco de horas zerado";
   signClass($("balance-days"), data.saldo_batidas_minutos);
   signClass($("balance-adjustments"), data.saldo_ajustes_minutos);
+  window.dispatchEvent(new CustomEvent("meus-pontos:saldo-atualizado", { detail: data }));
 }
 async function refresh() {
   if (!state.authenticated) return gate(true);
@@ -207,6 +223,13 @@ function chooseTab(name) {
   });
   refresh();
 }
+// Mini IA pode carregar depois da restauração rápida da sessão.
+ // Reenvia apenas o estado atual, sem consultar API ou alterar registros.
+window.addEventListener("meus-pontos:mini-ia-iniciada", () => {
+  if (state.authenticated && state.day) {
+    window.dispatchEvent(new CustomEvent("meus-pontos:dia-atualizado", { detail: state.day }));
+  }
+});
 $("minus").addEventListener("click", () => adjustTime(-1));
 $("plus").addEventListener("click", () => adjustTime(1));
 $("reset-time").addEventListener("click", () => { state.chosen = null; drawClock(); });
