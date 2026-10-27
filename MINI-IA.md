@@ -26,3 +26,9 @@ Treinamento é refeito de forma temporária durante análise; não é aprendizad
 - Comparar previsão neural com baseline estatístico antes de ampliar sua autonomia.
 - Exibir histórico de diagnósticos somente se houver consentimento e política explícita de retenção.
 - Manter revisão humana de qualquer sugestão que afete dados oficiais.
+
+## Testes de carregamento em Chrome
+
+A mini IA emite um evento de prontidão após registrar seus listeners. Se a tela principal já tiver carregado a sessão e o dia, ela retransmite o estado atual, impedindo que a análise fique parada em 'Aguardando análise' quando o arquivo da mini IA demora a carregar.
+
+O CI executa scripts/browser-smoke.mjs em Chrome headless, separado do npm test, com API simulada somente leitura. Isso verifica navegação real pelo navegador em larguras desktop/mobile, mas não substitui teste no aparelho físico nem autenticação de produção.

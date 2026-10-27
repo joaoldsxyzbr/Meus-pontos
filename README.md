@@ -64,7 +64,7 @@ Para trocar a senha, gere novas credenciais com o script e atualize **os três s
 npm test
 ```
 
-Os testes usam somente recursos nativos do Node.js. O GitHub Actions valida testes e sintaxe.
+Os testes de lógica usam Node.js nativo; os de migração usam Python/SQLite nativos. O GitHub Actions executa também um smoke test em Chrome headless (`node --test scripts/browser-smoke.mjs`) com API simulada. Rodar `npm test` localmente não exige Chrome.
 
 ## Observações
 

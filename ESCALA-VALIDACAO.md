@@ -30,3 +30,13 @@ O Worker e a migração SQL estão preparados na branch de desenvolvimento. Nenh
 Nenhum formulário de justificativas ou configuração de ciclo foi incorporado à interface neste PR. Essas operações devem ser auditáveis antes de serem expostas no aplicativo.
 
 Observação de compatibilidade: a migração também recria a visão legada banco_horas, presente no D1 real, preservando seus campos e pendências. Consultas externas dessa visão precisam ser validadas em cópia antes de publicar.
+
+## Evidências obtidas em 26/10/2026
+
+- Leitura da configuração do D1 de produção: sete regras semanais, sem referência de sábado alternado e sem justificativas cadastradas. Nenhuma escrita realizada no banco original.
+- Esquema SQL original das três views salvo em tests/fixtures/legacy_views.sql, somente com estrutura (nenhum registro pessoal). Testes SQLite compararam o resultado original e o migrado em casos sintéticos.
+- Uma base D1 temporária, preenchida apenas com dados sintéticos, validou no mecanismo real da Cloudflare a alternância, os feriados e a conciliação de saldo. Foi eliminada após o teste.
+- Uma **cópia temporária dos registros necessários do D1 original**, na mesma conta e com textos de motivos omitidos, foi migrada para comparação sem referência de sábado. Resultado: 7 dias comparados, 0 divergências; 5 dias na visão legada, 0 divergências; saldo total inalterado. Cópia excluída ao terminar.
+- Teste automatizado Chrome headless com servidor local de APIs somente leitura verificou ponto, histórico e saldo em breakpoints desktop/mobile e a recuperação da mini IA quando seu módulo atrasa. Defeito real de inicialização corrigido.
+
+**Ainda não validado:** calendário/justificativas configurados com dados efetivos (não existem no D1 atual); referência quinzenal fornecida pelo usuário; login com credenciais reais; instalação em celular físico; backup de produção; merge, migração real e deploy. A cópia temporária não constitui backup persistente.
