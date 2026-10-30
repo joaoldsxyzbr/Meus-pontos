@@ -47,7 +47,7 @@
   }
 
   async function loadTab() {
-    if (!authenticated || loading) return;
+    if (!authenticated) return;
     const sequence = ++requestSequence;
     loading = true;
     try {
@@ -63,9 +63,9 @@
         if (sequence === requestSequence) balance = result;
       }
     } catch (error) {
-      notify(errorMessage(error));
+      if (sequence === requestSequence) notify(errorMessage(error));
     } finally {
-      loading = false;
+      if (sequence === requestSequence) loading = false;
     }
   }
 
