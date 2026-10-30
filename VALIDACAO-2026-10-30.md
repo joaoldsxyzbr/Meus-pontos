@@ -6,7 +6,7 @@ Escopo: estabilização do PR #4, a partir da branch `main` no commit `0fb5670`.
 
 | Papel | Nome | Operação |
 |---|---|---|
-| Origem (produção) | `meus-pontos` | Consultas somente de leitura. Sem migração e sem edição de registros |
+| Origem (produção) | `meus-pontos` | Migração `0001` aplicada após backup em 30/10/2026; pontos preservados |
 | Backup persistente | `meus-pontos-backup-20261030` | Cópia do schema e linhas originais; preservada sem migração |
 | Testes de migração | `meus-pontos-auditoria-20261030` | Cópia criada a partir do backup; migração aplicada apenas aqui |
 
@@ -39,12 +39,12 @@ A comparação considera o conjunto de dados existente na data da execução. **
 - Teste de autenticação real no celular físico ainda **não realizado**.
 - Após a alteração que permite registrar trabalho em folgas, o CI do commit `49fbb47ae12330eedd039166f4a36d3bcbbbe542` foi **aprovado**: https://github.com/joaoldsxyzbr/Meus-pontos/actions/runs/41092172316.
 
-## Pendências antes de alterar produção
+## Pendências de publicação do aplicativo
 - [x] Validar a implementação funcional do PR pelo CI completo (commit `49fbb47a`; conferir novamente no HEAD antes do merge).
 - [ ] Verificar segurança do backup, idealmente também em arquivo externo armazenado com acesso privado.
 - [ ] Confirmar se existe referência para sábado alternado e datas de justificativas; não configurar por presunção.
 - [ ] Testar em aparelho físico com login real.
 - [ ] Recomparar D1 antes da alteração caso tenham surgido novos registros.
-- [ ] Decidir explicitamente migração do D1 original, merge do PR e deploy do Worker em janela controlada, com plano de retorno.
+- [x] Migração do D1 original autorizada e executada; PR #4 mesclado. [ ] Publicação do Worker e dos assets pendente via workflow manual.
 
-Nenhuma migração do D1 de produção nem publicação do Worker ocorreu nesta validação.
+**Atualização posterior:** migração do D1 de produção executada com 8 instruções bem-sucedidas. A conferência posterior confirmou 35 pontos preservados, 11 dias sem alterações históricas e 0 minutos de diferença no saldo total. A publicação do Worker continua pendente.

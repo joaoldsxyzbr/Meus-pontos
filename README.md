@@ -46,6 +46,13 @@ npx wrangler@latest secret put PONTO_SESSION_SECRET
 
 Cole o respectivo valor no prompt de cada comando. Não informe a senha inicial quando solicitarem `PONTO_PASSWORD_RECORD`: informe o registro de hash gerado pelo script.
 
+## Status de publicação (30/10/2026)
+
+- **D1 de produção migrado com sucesso:** a tabela `auditoria_pontos` e as novas views foram aplicadas. Os 35 pontos e os 11 dias históricos foram conferidos com o backup, sem diferenças de saldo, carga, pendência ou classificação.
+- **Código atualizado na `main`:** PR #4 mesclado e CI aprovado. **O Worker em produção ainda usa a versão anterior**; não confundir merge no GitHub com publicação na Cloudflare.
+- **Publicação pendente:** configure, somente no GitHub (Settings → Secrets and variables → Actions), os segredos `CLOUDFLARE_API_TOKEN` (token Cloudflare com permissões de Workers) e `CLOUDFLARE_ACCOUNT_ID` (ID da conta). Em seguida, em Actions → *Publicar Meus Pontos na Cloudflare* → *Run workflow*, execute a implantação manual, que publica Worker e assets em conjunto usando Wrangler.
+- Não inclua tokens, senhas ou backups neste repositório nem nesta conversa. O backup anterior à migração permanece no D1 privado `meus-pontos-backup-20261030`. O sábado alternado continua sem data de referência e não foi ativado.
+
 ## Publicação\n\nUse a conta Cloudflare que hospeda o D1 `meus-pontos`. Depois de publicar e configurar os três secrets, abra o endereço HTTPS do Worker. Apenas o usuário e a senha gerados permitirão acesso.\n\nSem os secrets necessários, a API permanece indisponível (HTTP 503) e **não expõe os registros**.
 
 Para trocar a senha, gere novas credenciais com o script e atualize **os três secrets**. A rotação de `PONTO_SESSION_SECRET` invalida as sessões antigas.

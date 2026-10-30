@@ -1,6 +1,6 @@
 # Liberação segura — estabilização da main
 
-Esta branch deriva exclusivamente da main no commit 0fb5670. O PR #4 é rascunho; **produção não deve mudar automaticamente**.
+Este documento registra o procedimento planejado antes do merge. Em 30/10/2026, o PR #4 foi mesclado à `main` e a migração do D1 de produção foi aplicada com sucesso após backup e ensaio isolado. **O Worker e os assets ainda não foram publicados**. Consulte o status atualizado no README.
 
 ## Impacto da alteração
 - A API recusa batidas que não incluam `data` e `tipo` exibidos no navegador, evitando gravações divergentes após atualização por outro aparelho ou virada do dia.
@@ -9,7 +9,7 @@ Esta branch deriva exclusivamente da main no commit 0fb5670. O PR #4 é rascunho
 - A tabela `auditoria_pontos` registra alterações de horários e exclusão da última batida. Corrigir batidas antigas recalcula saldos.
 - A view `banco_horas` é recriada a partir de `resumo_diario`. Verificar consultas externas e eventuais pontos anteriores à data `inicio_contagem`: eles podem não estar na nova view.
 
-## Pré-requisitos obrigatórios (nenhum executado por este PR)
+## Checklist de liberação (histórico; D1 já migrado)
 1. Confirmar com o responsável a data de sábado efetivamente trabalhado, feriados e justificativas. Nunca presumir datas.
 2. Obter backup **persistente** do D1 original com ferramenta oficial da Cloudflare e verificar recuperação. Não versionar o backup nem expor registros pessoais em logs.
 3. Criar uma **cópia isolada** do D1 em ambiente de teste sob controle do responsável.
@@ -40,3 +40,7 @@ Foi criada uma cópia persistente **no D1 da mesma conta Cloudflare** com o nome
 A comparação por linhas confirmou 35 pontos e 8 objetos de esquema, e a migração executada somente na cópia de testes manteve os 11 dias históricos e o saldo total sem divergências.
 
 Consulte [VALIDACAO-2026-10-30.md](VALIDACAO-2026-10-30.md). Esse procedimento **não exportou nem verificou um arquivo SQL fora da Cloudflare**. Se precisar de independência da conta ou de recuperação fora da Cloudflare, providencie uma exportação externa antes da mudança em produção.
+
+## Execução autorizada em 30/10/2026
+
+A migração SQL foi executada no D1 de produção; todas as 8 instruções retornaram sucesso. A comparação posterior confirmou preservação das cinco tabelas originais, **35 pontos** e **11 dias** sem divergências históricas, além da nova tabela `auditoria_pontos`. O PR #4 foi mesclado na `main` (commit `8387310`) e o CI aprovou. A publicação do Worker/arquivos está pendente porque a API conectada não aceitou o upload de assets com token de sessão; foi adicionado workflow de implantação manual `.github/workflows/deploy.yml` que exige credenciais guardadas em Secrets do GitHub. Não publicar somente backend ou somente frontend.
