@@ -16,12 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Gerar lockfile inicial para inspeção e CI
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          echo 'BEGIN_PROJECT_LOCKFILE'
-          cat package-lock.json
-          echo 'END_PROJECT_LOCKFILE'
       - name: Instalar dependências da versão fixa
         run: npm ci --ignore-scripts
       - name: Verificar contratos TypeScript
