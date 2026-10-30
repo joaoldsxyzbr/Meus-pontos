@@ -1,65 +1,64 @@
-# Plano de troca controlada para Svelte 5 — sem homologação pública
+# Publicação Svelte 5 via GitHub e Cloudflare Workers Builds
 
-## Estado do trabalho
-Os arquivos em `public/` e a implantação corrente **não são alterados**
-por este PR. O Worker e o D1 da produção permanecem exatamente os mesmos.
-`npm run build:release` gera `dist/release` (novo shell Svelte) e copia
-temporariamente os antigos arquivos CSS/JS que uma aba já aberta ainda pode
-solicitar. Nenhum dado pessoal entra no bundle.
+## Configuração confirmada em 30/10/2026
+O Worker **meus-pontos** já está ligado ao repositório GitHub
+`joaoldsxyzbr/Meus-pontos`. O Workers Builds acompanha a branch **main**
+e executa `npx wrangler deploy` automaticamente a cada push nessa branch,
+sem build step separado. O deploy anterior bem-sucedido na main era
+`f406de09947c4af67232ec437b3e70ccc0da1343`, com o Worker na versão
+`6554765e-b1be-4fc7-996d-96a973d25194` (100% do tráfego). Essas
+informações foram lidas da API Cloudflare **antes da ativação do Svelte**.
 
-`wrangler.release.jsonc` referencia **o mesmo Worker, D1 e rate limiter**
-do `wrangler.jsonc`; apenas troca `main` para um wrapper que conserva
-as respostas de `/api/*` e aplica `no-store` ao HTML/SW/manifest,
-além de assets JS/CSS versionados. Não usa Cloudflare Access nem URL
-de homologação pública.
+## Como a atualização é publicada
+O `wrangler.jsonc` principal foi atualizado para:
+- manter o nome `meus-pontos`, D1 existente `meus-pontos` com ID
+  `150895af-1ec9-4c6c-af03-a43189a9bb71` e rate limiter;
+- executar `build.command: npm run build:release` **dentro do próprio
+  `wrangler deploy`**, pois o Workers Builds ainda usa o deploy padrão;
+- publicar `src/release-worker.js` + `dist/release` (Svelte 5).
 
-## Verificações automáticas
-- `npm run build:release && npm run test:release`;
-- Compilação `wrangler deploy --dry-run` sem token e sem publicar;
-- TypeScript, Svelte, Node, Vitest/workerd, D1 local, SQLite e Chrome
-  desktop/mobile com API sintética;
-- Integração HTTP real em workerd e D1 local (sem token remoto);
-- Testes da compatibilidade com SW anterior: caches legados
-  `meus-pontos-shell-*` são limpos pelo SW novo; os arquivos legados
-  seguem disponíveis no primeiro rollout mas não são pré-cacheados;
-- API `/api/*` nunca é cacheada nem interceptada pela PWA.
+Não é necessária uma ação manual na Cloudflare nem um GitHub Actions
+`workflow_dispatch` para atualizar a interface. **O merge na main é
+uma publicação real de produção**.
 
-## Antes de executar o workflow manual
-1. Gerar backup **novo, privado e fora do repositório** do D1 de
-   produção. Conferir restauração em banco isolado, sem expor registros
-   em Issues, Actions, logs ou no código.
-2. Comparar em ambiente seguro: número de registros, auditorias,
-   saldos por dia e total, faltas e pendências. Nenhuma alteração
-   de schema ou migração D1 está autorizada na troca.
-3. Registrar a versão/deployment estável atual do Worker; garantir
-   como reverter por `wrangler rollback <VERSION_ID>` ou pelo
-   painel Workers & Pages > Deployments > Rollback.
-4. Verificar que os segredos e bindings de produção continuam
-   configurados; revisar permissões dos Actions. Configurar aprovação
-   de ambiente `production` no GitHub quando disponível.
-5. Usar **somente** `workflow_dispatch` do
-   `.github/workflows/svelte-release.yml` na branch `main`,
-   com as três confirmações exatas. Atenção: os textos são
-   declarações do operador, **não comprovam automaticamente backup**.
-6. Após publicar, verificar login, jornada e saldo por leitura; evitar
-   uma nova batida de teste no D1 real. Confirmar instalação e atualização
-   da PWA no aparelho, incluindo abrir uma aba da versão anterior.
-7. Se ocorrer problema, reverter **a versão do Worker**. Rollback de
-   código/asset não é rollback de dados D1, mas nenhum schema é alterado.
+## Proteção de dados e compatibilidade
+- O Worker original `src/worker.js` e os endpoints `/api/*` não mudam.
+- **Nenhuma migração SQL ou alteração de registros D1** ocorre no build.
+- O novo service worker deixa `/api/*` fora de todo cache; HTML/SW são
+  `no-store` e JS/CSS usam nomes com hash.
+- Os scripts e CSS antigos ficam publicados no primeiro release para abas
+  abertas antes da troca. Seu cache legado será limpo pelo SW novo.
+- CI valida tipos, integração HTTP em workerd com D1 local temporário,
+  regras SQLite, browser Chrome e `wrangler deploy --dry-run` da
+  configuração principal. O teste HTTP usa dados falsos e remove
+  credenciais Cloudflare de seu processo.
 
-## Limites
-Os testes Chrome e workerd locais não simulam todas as condições do
-iOS/Android, múltiplas abas ou caches antigos instalados. Antes de
-acionar o workflow, realizar ensaio de reversão e comparar métricas
-de produção sem reproduzir dados pessoais.
+## Reversão de código
+Se a interface falhar, reverter **somente o commit de publicação** no GitHub,
+abrir PR, passar no CI e fazer merge na `main`. O Workers Builds
+reimplantará automaticamente a versão anterior a partir de
+`wrangler.jsonc` e `public/`. Outra opção é o painel Cloudflare
+Workers & Pages → `meus-pontos` → Deployments → Rollback para a versão
+anterior identificada no painel. O rollback não deve alterar D1.
 
-## Sem homologação pública
-A decisão registrada na issue #5 é **não abrir staging público nem
-habilitar Cloudflare Access**. O D1 remoto de staging previamente criado
-continua inativo. O workflow antigo de staging é descontinuado
-na preparação da release; testes locais continuam disponíveis.
+O pacote antigo `public/` e o antigo `src/worker.js` permanecem
+versionados no mesmo repositório, para recuperação.
 
-Referências:
+## Backup e limites
+O banco privado `meus-pontos-backup-20261030` já existia antes desta
+etapa, mas **não foi demonstrada uma exportação/restauração atualizada**.
+A conexão atual do assistente é de **leitura somente**; a API de exportação
+D1 retornou erro de autorização. Portanto, não afirmar que um novo backup
+foi feito, nem que a restauração recente foi testada. A publicação troca
+**apenas a interface** sem writes de migração no D1, mas risco operacional
+residual permanece. Dados de produção não devem constar de commits,
+Actions, logs ou anexos.
+
+**Sem homologação pública:** por decisão do projeto, não habilitar
+Cloudflare Access nem criar URL de staging. Os testes de integração são
+locais e sintéticos.
+
+Documentação oficial:
+- https://developers.cloudflare.com/workers/ci-cd/builds/
+- https://developers.cloudflare.com/workers/wrangler/configuration/#custom-builds
 - https://developers.cloudflare.com/workers/versions-and-deployments/rollbacks/
-- https://developers.cloudflare.com/workers/wrangler/commands/workers/
-- https://developers.cloudflare.com/d1/reference/time-travel/

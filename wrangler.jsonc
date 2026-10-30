@@ -1,9 +1,9 @@
 {
   "name": "meus-pontos",
-  "main": "src/worker.js",
+  "main": "src/release-worker.js",
   "compatibility_date": "2026-10-20",
   "assets": {
-    "directory": "./public",
+    "directory": "./dist/release",
     "binding": "ASSETS",
     "run_worker_first": true
   },
@@ -23,5 +23,8 @@
         "period": 60
       }
     }
-  ]
+  ],
+  "build": {
+    "command": "npm run build:release"
+  }
 }

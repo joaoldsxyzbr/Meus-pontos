@@ -1,6 +1,6 @@
 # Meus Pontos
 
-PWA simples de controle pessoal de ponto, em **JavaScript puro, HTML e CSS**, sem React, Vite ou bibliotecas externas.
+PWA pessoal de registro de ponto com **Svelte 5, TypeScript e Vite**. API em Cloudflare Workers/Hono e banco D1. A interface anterior permanece em `public/` para rollback.
 
 ## Funcionalidades
 
@@ -9,18 +9,20 @@ PWA simples de controle pessoal de ponto, em **JavaScript puro, HTML e CSS**, se
 - **Banco de horas:** saldo consolidado, ajustes, faltas e pendências; ajustes paginados sem corte na centésima operação.
 - **Login:** apenas usuário e senha; botão de sair. A sessão autenticada é mantida por até sete dias em cookie seguro, sem guardar senha ou token em localStorage.
 
-O aplicativo usa o D1 `meus-pontos` existente. **Esta atualização exige a migração SQL** `migrations/0001_integridade_e_auditoria.sql` antes da publicação do novo Worker. A migração adiciona auditoria de correções e recria as views de saldos. Não aplicá-la ao D1 original sem backup, comparação em cópia e autorização específica; veja [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
+O aplicativo usa o D1 `meus-pontos` existente. A migração `migrations/0001_integridade_e_auditoria.sql` já foi aplicada em produção anteriormente. **A troca Svelte 5 não modifica o schema nem executa migrações.** Consulte [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
 
 ## Estrutura
 
-- `public/` — interface, manifesto e service worker.
+- `frontend/` — interface Svelte 5 e componentes.
+- `public/` — interface legada preservada para reversão.
 - `src/worker.js` — API e acesso ao D1.
 - `src/auth.js` — autenticação nativa PBKDF2 + HMAC.
 - `src/logic.js` e `src/schedule.js` — sequência das batidas, escala e horários de Brasília.
 - `src/corrections.js` — retificação de batidas e trilha de auditoria transacional.
 - `scripts/criar-login.mjs` — gera credenciais fortes e valores dos secrets.
 - `tests/` — testes nativos com Node e SQLite/Python; `scripts/browser-smoke.mjs` valida fluxos com Chrome headless.
-- `wrangler.jsonc` — Cloudflare Worker, D1 e rate limit de login.
+- `wrangler.jsonc` — Worker, D1, rate limit e build de produção via Svelte.
+- `scripts/build-release.mjs` — prepara a nova PWA e preserva assets legados na primeira troca.
 
 ## Configurar o primeiro usuário
 
@@ -46,7 +48,11 @@ npx wrangler@latest secret put PONTO_SESSION_SECRET
 
 Cole o respectivo valor no prompt de cada comando. Não informe a senha inicial quando solicitarem `PONTO_PASSWORD_RECORD`: informe o registro de hash gerado pelo script.
 
-## Status de publicação (30/10/2026)
+## Publicação automática via GitHub e Cloudflare Workers Builds
+
+O Worker `meus-pontos` está ligado ao GitHub e publica automaticamente os commits da branch `main`. O `wrangler.jsonc` contém o build Svelte antes do deploy; **um merge na main também é uma alteração de produção**. A API e o D1 permanecem os mesmos. Veja [RELEASE-SVELTE-CONTROLADA.md](docs/RELEASE-SVELTE-CONTROLADA.md) para testes e rollback.
+
+## Histórico de publicação (30/10/2026; etapas anteriores)
 
 - **D1 de produção migrado com sucesso:** a tabela `auditoria_pontos` e as novas views foram aplicadas. Os 35 pontos e os 11 dias históricos foram conferidos com o backup, sem diferenças de saldo, carga, pendência ou classificação.
 - **Código atualizado na `main`:** PR #4 mesclado e CI aprovado; publicação posterior via Wrangler foi detectada e o código do backend implantado confere com a `main`.
