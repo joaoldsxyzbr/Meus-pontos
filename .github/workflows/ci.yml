@@ -20,7 +20,7 @@ jobs:
       - name: Gerar lockfile de teste para versionamento
         run: |
           rm package-lock.json
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --legacy-peer-deps --loglevel verbose || { tail -n 100 /home/runner/.npm/_logs/*-debug-0.log; exit 1; }
           echo 'BEGIN_LOCKFILE_BASE64'
           base64 -w0 package-lock.json
           echo
