@@ -19,6 +19,7 @@ jobs:
       # TEMPORÁRIO para materializar package-lock pela execução remota; removido antes do merge.
       - name: Gerar lockfile de teste para versionamento
         run: |
+          rm package-lock.json
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           echo 'BEGIN_LOCKFILE_BASE64'
           base64 -w0 package-lock.json
