@@ -137,7 +137,7 @@
           </select>
         </label>
         <label>Duração (HH:MM)
-          <input required maxlength="6" placeholder="01:30" pattern="[0-9]{1,3}:[0-5][0-9]"
+          <input required maxlength="6" placeholder="01:30" pattern={'[0-9]{1,3}:[0-5][0-9]'}
             bind:value={duration} disabled={busy}/>
         </label>
         <label class="ledger-wide">Data
