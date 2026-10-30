@@ -9,13 +9,16 @@ export class HttpError extends Error {
 
 /** Nunca armazena dados autenticados em cache, LocalStorage ou service worker. */
 export async function api<T>(path: `/api/${string}`, options?: { method?: string; body?: unknown }): Promise<T> {
-  const response = await fetch(path, {
+  const init: RequestInit = {
     method: options?.method ?? "GET",
     credentials: "same-origin",
-    cache: "no-store",
-    headers: options?.body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: options?.body === undefined ? undefined : JSON.stringify(options.body)
-  });
+    cache: "no-store"
+  };
+  if (options?.body !== undefined) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(options.body);
+  }
+  const response = await fetch(path, init);
 
   let data: unknown;
   try {
