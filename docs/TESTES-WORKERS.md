@@ -5,10 +5,10 @@ Esta etapa da [issue #5](https://github.com/joaoldsxyzbr/Meus-pontos/issues/5) u
 ## Isolamento obrigatório
 
 - `vitest.config.ts` define `d1Databases: ["DB"]` em Miniflare e **não importa** `wrangler.jsonc`, que referencia o ID do banco de produção.
-- O esquema de teste `tests/fixtures/d1-base.sql` é **sintético**, criado por `db.exec`; os testes executam a migração real `migrations/0001_integridade_e_auditoria.sql` nesse banco local.
+- O esquema de teste `tests/fixtures/d1-base.sql` é **sintético**, criado por comandos DDL preparados em `db.prepare().run()`; os testes usam `readD1Migrations` e `applyD1Migrations` para executar a migração real `migrations/0001_integridade_e_auditoria.sql` nesse banco local.
 - Não existem credenciais, dados pessoais ou comandos remotos nas fixtures.
-- `npm run test:workers` deve testar cálculos do D1, jornadas incompletas e auditoria transacional.
-- Os testes existentes Node, SQLite/Python e Chrome headless continuam em execução no CI.
+- `npm run test:workers` valida cálculos do D1, jornadas incompletas e auditoria transacional. O arquivo `d1_migrations` é criado **somente nesse D1 local**.
+- Os testes existentes Node, SQLite/Python e Chrome headless continuam em execução no CI. O workflow manual de publicação também executará essas verificações antes do Wrangler.
 
 ## Diferenciar testes de produção
 
