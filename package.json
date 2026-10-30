@@ -9,7 +9,9 @@
     "verify": "npm run typecheck && npm test && npm run test:workers",
     "test:workers": "vitest run --config vitest.config.ts",
     "check:frontend": "svelte-check --tsconfig frontend/tsconfig.json",
-    "build:frontend": "vite build --config vite.frontend.config.ts"
+    "build:frontend": "vite build --config vite.frontend.config.ts",
+    "build:staging": "node scripts/build-staging.mjs",
+    "test:staging": "node --test scripts/staging.test.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.0",

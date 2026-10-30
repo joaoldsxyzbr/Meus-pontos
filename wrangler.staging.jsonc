@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "meus-pontos-homologacao",
+  "main": "src/staging-worker.js",
+  "compatibility_date": "2026-10-20",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist/staging",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "meus-pontos-homologacao-20261030",
+      "database_id": "bdaf9799-efc1-4f69-b497-c69f3ee39b0b"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_LIMITER",
+      "namespace_id": "520261030",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    }
+  ]
+}
