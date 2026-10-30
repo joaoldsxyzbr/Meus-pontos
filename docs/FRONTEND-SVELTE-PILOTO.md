@@ -9,8 +9,8 @@ vanilla JavaScript atualmente publicada em `public/`.
 - Login existente e restauração de sessão, com cookie HttpOnly mantido pela API.
 - Tela **Ponto**: seleção do horário, confirmação de folga, horário futuro,
   validação da data de Brasília, registro, status e totais.
-- **Histórico** mensal para consulta, sem correção ainda.
-- **Banco de horas** com totais/faltas/pendências, sem CRUD de ajustes ainda.
+- **Histórico** mensal, incluindo consulta, edição e exclusão da última batida com motivo obrigatório e auditoria.
+- **Banco de horas** com totais/faltas/pendências, créditos e débitos manuais, edição, exclusão e paginação.
 - Reutiliza `public/styles.css` sem reescrever identidade visual.
 - `fetch` com `credentials: same-origin` e `cache: no-store`. Nenhum cache
   de API ou persistência local de dados pessoais.
@@ -33,8 +33,9 @@ a recursos de produção sem aprovação e controles adequados.
 
 ## Não é liberação de produção
 
-O piloto ainda não implementa correções auditadas nem ajustes manuais,
-serviço offline/PWA, nem a matriz completa de acessibilidade e navegador.
+O piloto implementa correções e ajustes, mas ainda não inclui
+service worker/PWA novo, homologação em ambiente isolado nem a matriz
+completa de acessibilidade e navegadores.
 A interface real permanece em `public/` até paridade e homologação. O
 workflow de deploy continua publicando o frontend antigo, mesmo com o
 código Svelte versionado.
