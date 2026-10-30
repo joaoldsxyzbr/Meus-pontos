@@ -34,7 +34,7 @@ const smokeScript = String.raw`
   try {
     stage = "ponto";
     await wait(() => document.querySelector("#gate")?.hidden === true);
-    if (!document.querySelector("#today-date")?.textContent.includes("2026")) throw new Error("Dia não renderizado");
+    await wait(() => document.querySelector("#today-date")?.textContent.includes("2026"));
     if (!document.querySelector("#correction-heading")) throw new Error("Painel de correção não foi carregado");
     stage = "historico";
     document.querySelector('[data-tab="historico"]').click();
