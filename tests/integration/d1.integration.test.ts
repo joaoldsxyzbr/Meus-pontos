@@ -9,6 +9,9 @@ import { brazilNow } from "../../src/logic.js";
  * ID do banco de produção, credenciais Cloudflare ou rede remota.
  */
 const db = env.DB;
+// D1.exec interpreta algumas linhas de comentário como instruções vazias.
+const executableSql = (sql: string) => sql.split("\n")
+  .filter(line => !line.trimStart().startsWith("--")).join("\n").trim();
 const utcDay = (date: string) => new Date(date + "T12:00:00Z").getTime();
 const iso = (timestamp: number) => new Date(timestamp).toISOString().slice(0, 10);
 const today = brazilNow().date;
@@ -19,8 +22,8 @@ const wednesday = iso(utcDay(previousMonday) + 2 * 86400000);
 
 describe("D1 local e migração real do projeto", () => {
   beforeAll(async () => {
-    await db.exec(schema);
-    await db.exec(migration);
+    await db.exec(executableSql(schema));
+    await db.exec(executableSql(migration));
     const start = iso(utcDay(today) - 30 * 86400000);
     await db.prepare("INSERT INTO config(chave,valor) VALUES ('inicio_contagem', ?)").bind(start).run();
     for (let weekday = 0; weekday < 7; weekday++) {
