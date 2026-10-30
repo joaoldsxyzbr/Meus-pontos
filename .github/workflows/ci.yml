@@ -16,12 +16,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # TEMPORÁRIO para materializar package-lock pela execução remota; removido antes do merge.
+      - name: Gerar lockfile de teste para versionamento
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          echo 'BEGIN_LOCKFILE_BASE64'
+          base64 -w0 package-lock.json
+          echo
+          echo 'END_LOCKFILE_BASE64'
       - name: Instalar dependências da versão fixa
         run: npm ci --ignore-scripts
       - name: Verificar contratos TypeScript
         run: npm run typecheck
       - name: Testar JavaScript existente
         run: npm test
+      - name: Integrar Worker e D1 local no runtime workerd
+        run: npm run test:workers
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Verificar sintaxe

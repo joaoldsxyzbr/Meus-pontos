@@ -6,9 +6,13 @@
   "scripts": {
     "test": "node --test",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm test"
+    "verify": "npm run typecheck && npm test && npm run test:workers",
+    "test:workers": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "@cloudflare/vitest-plugin": "^1.0.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.0.0"
   }
 }
