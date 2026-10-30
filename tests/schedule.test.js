@@ -17,7 +17,7 @@ test("sábados alternam apenas após o sábado trabalhado de referência",()=>{
 });
 test("justificativas zeram carga exigida sem adulterar batidas",()=>{
  const row={carga_minutos:480,usa_intervalo:1,sabado_referencia:"2026-10-31",justificativa:"feriado"};
- assert.deepEqual(effectiveSchedule("2026-11-02",row),{carga_minutos:0,usa_intervalo:false,justificativa:"feriado"});
+ assert.deepEqual(effectiveSchedule("2026-11-02",row),{carga_minutos:0,usa_intervalo:true,justificativa:"feriado"});
  assert.equal(effectiveSchedule("2026-11-03",{...row,justificativa:null}).carga_minutos,480);
 });
 test("referências inválidas não alteram carga",()=>{

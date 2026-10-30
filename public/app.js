@@ -106,8 +106,13 @@ function drawToday(day) {
     !expected.length ? "Folga" : !day.next_type ? "Conferir registros" : "Em andamento";
   $("today-status").classList.toggle("done", complete);
   $("register").disabled = state.busy || !day.next_type;
-  $("register").textContent = day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() : complete ? "Jornada concluída" : "Registro indisponível";
-  $("point-hint").textContent = day.next_type ? "Confira o horário antes de registrar." : complete ? "Todas as batidas de hoje estão salvas." : "Nenhum novo registro disponível.";
+  const optionalWork = day.carga_minutos === 0 && day.points.length === 0 && day.next_type === "entrada";
+  $("register").textContent = optionalWork ? "Registrar trabalho em folga" :
+    day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() :
+    complete ? "Jornada concluída" : "Registro indisponível";
+  $("point-hint").textContent = optionalWork ? "Não há jornada prevista. Registre apenas se realmente trabalhar." :
+    day.next_type ? "Confira o horário antes de registrar." :
+    complete ? "Todas as batidas de hoje estão salvas." : "Nenhum novo registro disponível.";
   const container = $("steps");
   container.replaceChildren();
   if (!expected.length) {
@@ -196,6 +201,8 @@ async function registerPoint() {
     await loadToday().catch(error => toast(error.message));
     return;
   }
+  const optionalWork = state.day.carga_minutos === 0 && state.day.points.length === 0;
+  if (optionalWork && !window.confirm("Hoje não há jornada prevista. Confirmar que você está trabalhando neste dia de folga?")) return;
   const hour = state.chosen ?? timeNow();
   if (minuteValue(hour) > minuteValue(timeNow()) &&
       !window.confirm("O horário escolhido é posterior ao atual. Confirma o registro adiantado às " + hour + "?")) return;
@@ -206,7 +213,8 @@ async function registerPoint() {
   $("register").textContent = "Salvando…";
   try {
     const result = await api("/api/pontos", { method: "POST", body: JSON.stringify({
-      horario: hour, data: expectedDate, tipo: expectedType
+      horario: hour, data: expectedDate, tipo: expectedType,
+      trabalho_em_folga: optionalWork
     }) });
     state.chosen = null;
     drawToday(result);

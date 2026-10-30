@@ -14,9 +14,9 @@ const SESSION_SECRET = Buffer.alloc(32, 5).toString("base64url");
 const TEST_TIME = "00:03";
 const point = (horario, tipo = "saida", data = brazilNow().date) => ({ horario, tipo, data });
 
-function fixture() {
+function fixture({ carga = 480, usaIntervalo = 1, semBatidas = false } = {}) {
   const date = brazilNow().date;
-  const points = [
+  const points = semBatidas ? [] : [
     { tipo: "entrada", horario: "00:00" },
     { tipo: "ida_intervalo", horario: "00:01" },
     { tipo: "volta_intervalo", horario: "00:02" }
@@ -29,7 +29,7 @@ function fixture() {
       return {
         bind(...values) { params = values; return this; },
         async first() {
-          if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1 };
+          if (sql.includes("FROM jornada_padrao")) return { carga_minutos: carga, usa_intervalo: usaIntervalo };
           if (sql.includes("FROM config")) return null;
           if (sql.includes("FROM justificativas")) return null;
           if (sql.includes("FROM resumo_diario") && sql.includes("WHERE data =")) {
@@ -184,4 +184,21 @@ test("API do dia fornece as etapas conforme a jornada configurada", async () => 
   const data = await res.json();
   assert.deepEqual(data.expected_steps, ["entrada", "ida_intervalo", "volta_intervalo", "saida"]);
   assert.equal(data.usa_intervalo, true);
+});
+
+test("Trabalho em folga exige confirmação explícita e pode registrar jornada", async () => {
+  const env = fixture({ carga: 0, usaIntervalo: 1, semBatidas: true });
+  const cookie = await authenticate(env);
+  const day = await worker.fetch(request("/api/hoje", "GET", null, cookie), env);
+  assert.equal((await day.json()).next_type, "entrada");
+  const unconfirmed = await worker.fetch(request("/api/pontos", "POST",
+    point("09:00", "entrada"), cookie), env);
+  assert.equal(unconfirmed.status, 409);
+  assert.equal(env.inserted, 0);
+  const confirmed = await worker.fetch(request("/api/pontos", "POST",
+    { ...point("09:00", "entrada"), trabalho_em_folga: true }, cookie), env);
+  assert.equal(confirmed.status, 201);
+  const saved = await confirmed.json();
+  assert.equal(saved.type, "entrada");
+  assert.deepEqual(saved.expected_steps, ["entrada", "ida_intervalo", "volta_intervalo", "saida"]);
 });

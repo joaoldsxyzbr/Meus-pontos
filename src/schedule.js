@@ -22,7 +22,7 @@ export function effectiveSchedule(date, schedule = {}) {
   const minutes = restSaturday || justified ? 0 : base;
   return {
     carga_minutos: minutes,
-    usa_intervalo: minutes > 0 && Boolean(schedule.usa_intervalo),
+    usa_intervalo: Boolean(schedule.usa_intervalo),
     justificativa: justified ? schedule.justificativa : null
   };
 }
