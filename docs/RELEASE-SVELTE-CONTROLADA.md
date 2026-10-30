@@ -15,6 +15,7 @@ de homologação pública.
 
 ## Verificações automáticas
 - `npm run build:release && npm run test:release`;
+- Compilação `wrangler deploy --dry-run` sem token e sem publicar;
 - TypeScript, Svelte, Node, Vitest/workerd, D1 local, SQLite e Chrome
   desktop/mobile com API sintética;
 - Integração HTTP real em workerd e D1 local (sem token remoto);
