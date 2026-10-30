@@ -16,7 +16,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Testar JavaScript sem dependências
+      - name: Gerar lockfile inicial para inspeção e CI
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          echo 'BEGIN_PROJECT_LOCKFILE'
+          cat package-lock.json
+          echo 'END_PROJECT_LOCKFILE'
+      - name: Instalar dependências da versão fixa
+        run: npm ci --ignore-scripts
+      - name: Verificar contratos TypeScript
+        run: npm run typecheck
+      - name: Testar JavaScript existente
         run: npm test
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
