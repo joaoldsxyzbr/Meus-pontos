@@ -1,8 +1,15 @@
 <script lang="ts">
   import type { BalanceResponse } from "../../../src/shared/contracts";
   import { minutesText } from "../lib/time";
+  import Ajustes from "./Ajustes.svelte";
 
-  let { data, loading }: { data: BalanceResponse | null; loading: boolean } = $props();
+  let { data, loading, changed, notify, onError }: {
+    data: BalanceResponse | null;
+    loading: boolean;
+    changed: () => void;
+    notify: (message: string) => void;
+    onError: (error: unknown) => string;
+  } = $props();
 </script>
 <section class="page" id="page-saldo" aria-labelledby="title-balance">
   <div class="heading">
@@ -29,5 +36,5 @@
     <div class="metric"><span>Pendências</span><strong>{data?.pendencias ?? "—"}</strong></div>
   </div>
   <p class="note">O saldo considera jornadas fechadas, faltas não justificadas e ajustes cadastrados.</p>
-  <p class="hint">Piloto Svelte: inclusão e edição de ajustes serão migradas em uma próxima etapa.</p>
+  <Ajustes {changed} {notify} {onError}/>
 </section>
