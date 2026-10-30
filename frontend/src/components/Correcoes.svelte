@@ -93,7 +93,7 @@
   <label for="correction-date">Data dos registros</label>
   <div class="correction-row">
     <input id="correction-date" type="date" min="2000-01-01" max={brazilDate()}
-      bind:value={selectedDate} onchange={() => { consulted = []; selected = null; searched = false; message = ""; sequence++; }}/>
+      bind:value={selectedDate} onchange={() => { consulted = []; selected = null; searched = false; loading = false; message = ""; sequence++; }}/>
     <button type="button" class="ledger-outline" onclick={consult} disabled={loading || busy}>
       {loading ? "Consultando…" : "Consultar"}
     </button>
