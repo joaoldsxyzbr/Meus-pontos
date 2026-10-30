@@ -48,3 +48,7 @@ A comparação considera o conjunto de dados existente na data da execução. **
 - [x] Migração do D1 original autorizada e executada; PR #4 mesclado. [ ] Publicação do Worker e dos assets pendente via workflow manual.
 
 **Atualização posterior:** migração do D1 de produção executada com 8 instruções bem-sucedidas. A conferência posterior confirmou 35 pontos preservados, 11 dias sem alterações históricas e 0 minutos de diferença no saldo total. A publicação do Worker continua pendente.
+
+## Implantação posterior observada
+
+Em 30/10/2026, a Cloudflare passou a indicar a versão 17 (`0e9ba29b-f236-4f69-a223-851684cf2167`) implantada com 100% do tráfego, origem `wrangler`. O conteúdo do source map foi comparado com os seis arquivos `src/` da `main`, todos idênticos. Há vínculo para arquivos estáticos e D1 e os secrets estão presentes como bindings (não foram lidos). A tentativa de acesso externo ao endereço de execução por este ambiente retornou erro de acesso; assim, **não foi possível validar o HTML/JS servido nem login real**. Ainda é necessário conferir o PWA no navegador físico, especialmente ponto, histórico, banco e correções.

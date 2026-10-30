@@ -1,6 +1,6 @@
 # Liberação segura — estabilização da main
 
-Este documento registra o procedimento planejado antes do merge. Em 30/10/2026, o PR #4 foi mesclado à `main` e a migração do D1 de produção foi aplicada com sucesso após backup e ensaio isolado. **O Worker e os assets ainda não foram publicados**. Consulte o status atualizado no README.
+Este documento registra o procedimento planejado antes do merge. Em 30/10/2026, o PR #4 foi mesclado à `main` e a migração do D1 de produção foi aplicada com sucesso após backup e ensaio isolado. **Uma nova implantação do Worker via Wrangler foi detectada posteriormente**, com versão 17 e código do backend igual à `main`; a validação dos assets servidos e login em dispositivo real ainda está pendente. Consulte o status atualizado no README.
 
 ## Impacto da alteração
 - A API recusa batidas que não incluam `data` e `tipo` exibidos no navegador, evitando gravações divergentes após atualização por outro aparelho ou virada do dia.
@@ -44,3 +44,7 @@ Consulte [VALIDACAO-2026-10-30.md](VALIDACAO-2026-10-30.md). Esse procedimento *
 ## Execução autorizada em 30/10/2026
 
 A migração SQL foi executada no D1 de produção; todas as 8 instruções retornaram sucesso. A comparação posterior confirmou preservação das cinco tabelas originais, **35 pontos** e **11 dias** sem divergências históricas, além da nova tabela `auditoria_pontos`. O PR #4 foi mesclado na `main` (commit `8387310`) e o CI aprovou. A publicação do Worker/arquivos está pendente porque a API conectada não aceitou o upload de assets com token de sessão; foi adicionado workflow de implantação manual `.github/workflows/deploy.yml` que exige credenciais guardadas em Secrets do GitHub. Não publicar somente backend ou somente frontend.
+
+## Publicação observada em 30/10/2026
+
+Depois do merge e da migração, a Cloudflare registrou três implantações via Wrangler, sendo a última com versão 17 (`0e9ba29b-f236-4f69-a223-851684cf2167`) a 100% do tráfego. A inspeção do source map confirmou correspondência exata dos seis arquivos de backend com a `main` e bindings `ASSETS`, `DB`, `LOGIN_LIMITER` e os três secrets de autenticação. Esta verificação não atesta o conteúdo servido dos assets nem login real; testes físicos e revisão funcional permanecem pendentes. A conexão MCP não realizou esse upload, de modo que não é possível atribuir a origem exata dessas implantações para além de `wrangler`.
