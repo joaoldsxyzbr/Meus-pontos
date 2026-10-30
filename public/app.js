@@ -102,8 +102,8 @@ function drawToday(day) {
     day.carga_minutos > 0 ? (day.usa_intervalo ? ["entrada", "ida_intervalo", "volta_intervalo", "saida"] : ["entrada", "saida"]) : [];
   const complete = expected.length > 0 && day.points.length === expected.length &&
     expected.every((type, i) => day.points[i]?.tipo === type) && !day.pendencia;
-  $("today-status").textContent = complete ? "Concluído" : !expected.length ? "Folga" :
-    !day.next_type ? "Conferir registros" : "Em andamento";
+  $("today-status").textContent = complete ? "Concluído" : day.justificativa ? "Justificado" :
+    !expected.length ? "Folga" : !day.next_type ? "Conferir registros" : "Em andamento";
   $("today-status").classList.toggle("done", complete);
   $("register").disabled = state.busy || !day.next_type;
   $("register").textContent = day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() : complete ? "Jornada concluída" : "Registro indisponível";
@@ -280,6 +280,11 @@ setInterval(() => {
     loadToday().catch(error => toast(error.message));
   }
 }, 15000);
+// Sincroniza dispositivos enquanto a tela de ponto estiver visível.
+setInterval(() => {
+  if (state.authenticated && state.tab === "ponto" && !state.busy &&
+      document.visibilityState === "visible") loadToday().catch(() => {});
+}, 60000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.authenticated && !state.busy) refresh();
 });

@@ -75,6 +75,7 @@ async function today(env) {
     next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
     expected_steps: expectedTypes(Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
     usa_intervalo: Boolean(schedule?.usa_intervalo),
+    justificativa: schedule?.justificativa || null,
     carga_minutos: schedule?.carga_minutos || 0,
     total_trabalhado_minutos: day?.total_trabalhado_minutos ?? null,
     saldo_minutos: day?.saldo_minutos ?? null,
