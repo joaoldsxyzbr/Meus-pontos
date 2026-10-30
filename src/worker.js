@@ -2,6 +2,7 @@ import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } fr
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 import { adjustmentsApi } from "./adjustments.js";
 import { correctionsApi } from "./corrections.js";
+import { effectiveSchedule } from "./schedule.js";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -44,10 +45,25 @@ async function login(request, env) {
   return json({ ok: true, usuario: env.PONTO_USERNAME }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
+async function scheduleFor(env, date) {
+  const [weekly, config, justification] = await Promise.all([
+    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?")
+      .bind(weekday(date)).first(),
+    env.DB.prepare("SELECT valor FROM config WHERE chave = 'sabado_trabalhado_inicio'").first(),
+    env.DB.prepare("SELECT tipo FROM justificativas WHERE data = ?").bind(date).first()
+  ]);
+  return effectiveSchedule(date, {
+    carga_minutos: weekly?.carga_minutos ?? 0,
+    usa_intervalo: Boolean(weekly?.usa_intervalo),
+    sabado_referencia: config?.valor,
+    justificativa: justification?.tipo
+  });
+}
+
 async function today(env) {
   const now = brazilNow();
   const [schedule, points, day] = await Promise.all([
-    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
+    scheduleFor(env, now.date),
     env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all(),
     env.DB.prepare("SELECT total_trabalhado_minutos, carga_prevista, saldo_minutos, pendencia FROM resumo_diario WHERE data = ?").bind(now.date).first()
   ]);
@@ -82,7 +98,7 @@ async function register(request, env) {
     return json({ error: "Atualize o aplicativo antes de registrar um novo ponto." }, 409);
 
   const [schedule, result] = await Promise.all([
-    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
+    scheduleFor(env, now.date),
     env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all()
   ]);
   const rows = result.results || [];

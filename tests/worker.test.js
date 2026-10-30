@@ -30,6 +30,8 @@ function fixture() {
         bind(...values) { params = values; return this; },
         async first() {
           if (sql.includes("FROM jornada_padrao")) return { carga_minutos: 480, usa_intervalo: 1 };
+          if (sql.includes("FROM config")) return null;
+          if (sql.includes("FROM justificativas")) return null;
           if (sql.includes("FROM resumo_diario") && sql.includes("WHERE data =")) {
             return { total_trabalhado_minutos: inserted ? 513 : null, saldo_minutos: inserted ? 33 : null, pendencia: inserted ? null : "sem_saida" };
           }
