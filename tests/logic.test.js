@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { brazilNow, weekday, nextType, validTime, validMonth } from "../src/logic.js";
+import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "../src/logic.js";
 
 test("Brasília usa data e horário locais", () => {
   assert.deepEqual(brazilNow(new Date("2026-10-20T20:35:00Z")), { date: "2026-10-20", time: "17:35" });
@@ -30,4 +30,10 @@ test("Validações de horários e mês", () => {
   assert.equal(validMonth("2026-10"), true);
   assert.equal(validMonth("2026-13"), false);
   assert.equal(validMonth("2026-2"), false);
+});
+
+test("Etapas previstas são definidas pela configuração, não pelo dia da semana", () => {
+  assert.deepEqual(expectedTypes(false, 480), ["entrada", "saida"]);
+  assert.deepEqual(expectedTypes(true, 240), ["entrada", "ida_intervalo", "volta_intervalo", "saida"]);
+  assert.deepEqual(expectedTypes(false, 0), []);
 });

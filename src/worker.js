@@ -1,4 +1,4 @@
-import { brazilNow, weekday, nextType, validTime, validMonth } from "./logic.js";
+import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "./logic.js";
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 import { adjustmentsApi } from "./adjustments.js";
 
@@ -56,6 +56,8 @@ async function today(env) {
     now: now.time,
     points: rows,
     next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
+    expected_steps: expectedTypes(Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
+    usa_intervalo: Boolean(schedule?.usa_intervalo),
     carga_minutos: schedule?.carga_minutos || 0,
     total_trabalhado_minutos: day?.total_trabalhado_minutos ?? null,
     saldo_minutos: day?.saldo_minutos ?? null,
@@ -71,8 +73,12 @@ async function register(request, env) {
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400); }
   const time = body?.horario;
   if (!validTime(time)) return json({ error: "Horário inválido." }, 400);
-
   const now = brazilNow();
+  // A data e o tipo precisam corresponder ao que a pessoa viu na tela.
+  // Clientes antigos sem esses campos falham de forma segura, sem gravar um tipo inesperado.
+  if (body?.data !== now.date) return json({ error: "O dia mudou. Atualize os registros antes de bater o ponto." }, 409);
+  if (!["entrada", "ida_intervalo", "volta_intervalo", "saida"].includes(body?.tipo))
+    return json({ error: "Atualize o aplicativo antes de registrar um novo ponto." }, 409);
 
   const [schedule, result] = await Promise.all([
     env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
@@ -81,6 +87,7 @@ async function register(request, env) {
   const rows = result.results || [];
   const type = nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0);
   if (!type) return json({ error: "Jornada completa, dia de folga ou batidas inconsistentes." }, 409);
+  if (body.tipo !== type) return json({ error: "Os registros mudaram. Atualize a tela e confirme a próxima batida." }, 409);
   if (rows.length && time <= rows[rows.length - 1].horario) {
     return json({ error: "Horário deve ser posterior à batida anterior." }, 400);
   }

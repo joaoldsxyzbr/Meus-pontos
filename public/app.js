@@ -13,6 +13,12 @@ const hourFormatter = new Intl.DateTimeFormat("pt-BR", {
 function timeNow() {
   return hourFormatter.format(new Date());
 }
+function dateNow() {
+  const values = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric"
+  }).formatToParts(new Date()).map(part => [part.type, part.value]));
+  return values.year + "-" + values.month + "-" + values.day;
+}
 function minuteValue(time) {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
@@ -92,15 +98,16 @@ function adjustTime(delta) {
 function drawToday(day) {
   state.day = day;
   $("today-date").textContent = displayDate(day.date, true);
-  const complete = !day.next_type && day.carga_minutos > 0 && !day.pendencia;
-  $("today-status").textContent = complete ? "Concluído" : day.carga_minutos === 0 ? "Folga" : "Em andamento";
+  const expected = Array.isArray(day.expected_steps) ? day.expected_steps :
+    day.carga_minutos > 0 ? (day.usa_intervalo ? ["entrada", "ida_intervalo", "volta_intervalo", "saida"] : ["entrada", "saida"]) : [];
+  const complete = expected.length > 0 && day.points.length === expected.length &&
+    expected.every((type, i) => day.points[i]?.tipo === type) && !day.pendencia;
+  $("today-status").textContent = complete ? "Concluído" : !expected.length ? "Folga" :
+    !day.next_type ? "Conferir registros" : "Em andamento";
   $("today-status").classList.toggle("done", complete);
   $("register").disabled = state.busy || !day.next_type;
   $("register").textContent = day.next_type ? "Registrar " + kinds[day.next_type].toLowerCase() : complete ? "Jornada concluída" : "Registro indisponível";
   $("point-hint").textContent = day.next_type ? "Confira o horário antes de registrar." : complete ? "Todas as batidas de hoje estão salvas." : "Nenhum novo registro disponível.";
-  const isSaturday = new Date(day.date + "T12:00:00Z").getUTCDay() === 6;
-  const expected = day.carga_minutos === 0 ? [] : isSaturday ?
-    ["entrada", "saida"] : ["entrada", "ida_intervalo", "volta_intervalo", "saida"];
   const container = $("steps");
   container.replaceChildren();
   if (!expected.length) {
@@ -122,6 +129,7 @@ function drawToday(day) {
 }
 async function loadToday() {
   const day = await api("/api/hoje");
+  if (state.day?.date && state.day.date !== day.date) state.chosen = null;
   drawToday(day);
 }
 function historyRow(item) {
@@ -145,9 +153,12 @@ function historyRow(item) {
     item.saldo_minutos == null ? "Em andamento" : minutesText(item.total_trabalhado_minutos) + " trabalhadas";
   right.append(value, status); row.append(left, right); return row;
 }
+let historyRequest = 0;
 async function loadHistory() {
+  const requestId = ++historyRequest;
   const month = $("history-month").value;
   const { days } = await api("/api/historico?mes=" + encodeURIComponent(month));
+  if (requestId !== historyRequest || $("history-month").value !== month) return;
   const list = $("history-list"); list.replaceChildren();
   if (!days.length) {
     const div = document.createElement("div"); div.className = "empty"; div.textContent = "Nenhum dia encontrado neste mês."; list.append(div);
@@ -165,6 +176,7 @@ async function loadBalance() {
   $("balance-status").textContent = data.saldo_total_minutos > 0 ? "Horas a favor" : data.saldo_total_minutos < 0 ? "Horas a compensar" : "Banco de horas zerado";
   signClass($("balance-days"), data.saldo_batidas_minutos);
   signClass($("balance-adjustments"), data.saldo_ajustes_minutos);
+  document.dispatchEvent(new Event("meus-pontos:saldo-atualizado"));
 }
 async function refresh() {
   if (!state.authenticated) return gate(true);
@@ -178,12 +190,24 @@ async function refresh() {
 }
 async function registerPoint() {
   if (state.busy || !state.day?.next_type) return;
+  if (state.day.date !== dateNow()) {
+    state.chosen = null;
+    toast("A data mudou. Atualizando a jornada antes de registrar.");
+    await loadToday().catch(error => toast(error.message));
+    return;
+  }
   const hour = state.chosen ?? timeNow();
+  if (minuteValue(hour) > minuteValue(timeNow()) &&
+      !window.confirm("O horário escolhido é posterior ao atual. Confirma o registro adiantado às " + hour + "?")) return;
+  const expectedDate = state.day.date;
+  const expectedType = state.day.next_type;
   state.busy = true;
   $("register").disabled = true;
   $("register").textContent = "Salvando…";
   try {
-    const result = await api("/api/pontos", { method: "POST", body: JSON.stringify({ horario: hour }) });
+    const result = await api("/api/pontos", { method: "POST", body: JSON.stringify({
+      horario: hour, data: expectedDate, tipo: expectedType
+    }) });
     state.chosen = null;
     drawToday(result);
     toast("Ponto de " + kinds[result.type].toLowerCase() + " registrado às " + hour + ".");
@@ -248,7 +272,17 @@ if (!/^\d{4}-\d{2}$/.test($("history-month").value)) {
   $("history-month").value = value.year + "-" + value.month;
 }
 drawClock();
-setInterval(drawClock, 15000);
+setInterval(() => {
+  drawClock();
+  if (state.authenticated && state.tab === "ponto" && !state.busy &&
+      document.visibilityState === "visible" && state.day?.date !== dateNow()) {
+    state.chosen = null;
+    loadToday().catch(error => toast(error.message));
+  }
+}, 15000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.authenticated && !state.busy) refresh();
+});
 async function restoreSession() {
   try {
     await api("/api/sessao");

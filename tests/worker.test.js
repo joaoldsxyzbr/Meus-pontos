@@ -12,6 +12,7 @@ const RECORD = "v1:100000:" + SALT.toString("base64url") + ":" +
   pbkdf2Sync(PASSWORD, SALT, 100000, 32, "sha256").toString("base64url");
 const SESSION_SECRET = Buffer.alloc(32, 5).toString("base64url");
 const TEST_TIME = "00:03";
+const point = (horario, tipo = "saida", data = brazilNow().date) => ({ horario, tipo, data });
 
 function fixture() {
   const date = brazilNow().date;
@@ -132,9 +133,9 @@ test("API bloqueia CSRF, formato incorreto e regressão de horário", async () =
   const env = fixture();
   assert.equal((await worker.fetch(request("/api/login", "POST", { usuario: USER, senha: PASSWORD }, "", "https://externo.com"), env)).status, 403);
   const cookie = await authenticate(env);
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: TEST_TIME }, cookie, "https://externo.com"), env)).status, 403);
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "24:15" }, cookie), env)).status, 400);
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "00:01" }, cookie), env)).status, 400);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", point(TEST_TIME), cookie, "https://externo.com"), env)).status, 403);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", point("24:15"), cookie), env)).status, 400);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", point("00:01"), cookie), env)).status, 400);
   assert.equal(env.inserted, 0);
 });
 
@@ -143,18 +144,18 @@ test("Registro autenticado não repete batida", async () => {
   const cookie = await authenticate(env);
   const now = brazilNow().time;
   if (now < TEST_TIME) return; // Antes das 00:03, não existe horário válido após a terceira batida simulada.
-  const res = await worker.fetch(request("/api/pontos", "POST", { horario: TEST_TIME }, cookie), env);
+  const res = await worker.fetch(request("/api/pontos", "POST", point(TEST_TIME), cookie), env);
   assert.equal(res.status, 201);
   assert.equal((await res.json()).type, "saida");
   assert.equal(env.points[3].horario, TEST_TIME);
-  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: TEST_TIME }, cookie), env)).status, 409);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", point(TEST_TIME), cookie), env)).status, 409);
   assert.equal(env.inserted, 1);
 });
 
 test("API permite horário adiantado no mesmo dia, preservando a ordem", async () => {
   const env = fixture();
   const cookie = await authenticate(env);
-  const response = await worker.fetch(request("/api/pontos", "POST", { horario: "23:59" }, cookie), env);
+  const response = await worker.fetch(request("/api/pontos", "POST", point("23:59"), cookie), env);
   assert.equal(response.status, 201);
   assert.equal((await response.json()).type, "saida");
   assert.equal(env.points.at(-1).horario, "23:59");
@@ -165,4 +166,20 @@ test("Arquivos públicos preservam política CSP e não exibem segredos", async 
   const response = await worker.fetch(new Request(ORIGIN + "/"), fixture());
   assert.equal(response.status, 200);
   assert.ok(response.headers.get("Content-Security-Policy").includes("script-src 'self'"));
+});
+test("API não registra batida com data ou tipo desatualizado", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", point("00:03", "entrada"), cookie), env)).status, 409);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", point("00:03", "saida", "2026-01-01"), cookie), env)).status, 409);
+  assert.equal((await worker.fetch(request("/api/pontos", "POST", { horario: "00:03" }, cookie), env)).status, 409);
+  assert.equal(env.inserted, 0);
+});
+test("API do dia fornece as etapas conforme a jornada configurada", async () => {
+  const env = fixture();
+  const cookie = await authenticate(env);
+  const res = await worker.fetch(request("/api/hoje", "GET", null, cookie), env);
+  const data = await res.json();
+  assert.deepEqual(data.expected_steps, ["entrada", "ida_intervalo", "volta_intervalo", "saida"]);
+  assert.equal(data.usa_intervalo, true);
 });

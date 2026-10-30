@@ -170,7 +170,7 @@ async function removeItem(item) {
 $a("ledger-new").addEventListener("click", () => openForm());
 $a("ledger-cancel").addEventListener("click", closeForm);
 $a("ledger-form").addEventListener("submit", save);
-document.querySelector('[data-tab="saldo"]').addEventListener("click", () => {
+document.addEventListener("meus-pontos:saldo-atualizado", () => {
   loadLedger().catch(error => alertUser(error.message));
 });
 $a("ledger-date").max = dateNow();

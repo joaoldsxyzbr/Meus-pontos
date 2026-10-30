@@ -1,4 +1,4 @@
-const CACHE = "meus-pontos-shell-v5";
+const CACHE = "meus-pontos-shell-v6";
 const SHELL = ["/", "/index.html", "/styles.css", "/app.js", "/ajustes.js", "/ajustes.css", "/icon.svg", "/manifest.webmanifest"];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -9,7 +9,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  if (request.method !== "GET" || url.origin !== self.location.origin ||
+      !SHELL.includes(url.pathname)) return;
   event.respondWith(fetch(request).then((response) => {
     if (response.ok) {
       const copy = response.clone();
