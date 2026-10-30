@@ -7,16 +7,22 @@
     "test": "node --test tests/*.test.js",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm test && npm run test:workers",
-    "test:workers": "vitest run --config vitest.config.ts"
+    "test:workers": "vitest run --config vitest.config.ts",
+    "check:frontend": "svelte-check --tsconfig frontend/tsconfig.json",
+    "build:frontend": "vite build --config vite.frontend.config.ts"
   },
   "devDependencies": {
     "typescript": "7.0.2",
     "@cloudflare/vitest-plugin": "^1.0.0",
     "vitest": "^4.1.0",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.0.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "vite": "^8.0.0",
+    "svelte-check": "^4.0.0"
   },
   "dependencies": {
     "hono": "^4.10.0",
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "svelte": "^5.46.4"
   }
 }

@@ -16,8 +16,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # Preparação temporária do lockfile, removida antes da aprovação do PR.
+      - name: Gerar lockfile para as dependências Svelte
+        run: |
+          rm package-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          echo BEGIN_LOCKFILE_BASE64
+          base64 -w0 package-lock.json
+          echo
+          echo END_LOCKFILE_BASE64
       - name: Instalar dependências da versão fixa
         run: npm ci --ignore-scripts
+      - name: Conferir componentes Svelte e TypeScript
+        run: npm run check:frontend
+      - name: Construir piloto Svelte sem tocar nos assets de produção
+        run: npm run build:frontend
       - name: Verificar contratos TypeScript
         run: npm run typecheck
       - name: Testar JavaScript existente
