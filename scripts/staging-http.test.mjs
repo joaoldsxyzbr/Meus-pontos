@@ -10,8 +10,10 @@ import path from "node:path";
 
 const runFile = promisify(execFile);
 const wrangler = path.resolve("node_modules/wrangler/bin/wrangler.js");
-const config = "wrangler.staging.jsonc";
-const dbName = "meus-pontos-homologacao-20261030";
+// Apenas no CI/local: ambos os modos impõem --local e removem credenciais Cloudflare.
+const release = process.env.E2E_RELEASE_LOCAL === "1";
+const config = release ? "wrangler.jsonc" : "wrangler.staging.jsonc";
+const dbName = release ? "meus-pontos" : "meus-pontos-homologacao-20261030";
 const fakeUser = "teste-local";
 const fakePassword = "senha-sintetica-apenas-para-ci";
 const born = () => {
@@ -24,14 +26,19 @@ const born = () => {
 function lockedConfig() {
   return readFile(config, "utf8").then(text => {
     const data = JSON.parse(text);
-    const expectedId = "bdaf9799-efc1-4f69-b497-c69f3ee39b0b";
-    if (data.name !== "meus-pontos-homologacao" ||
-        data.workers_dev !== false || data.preview_urls !== false ||
+    const expectedId = release
+      ? "150895af-1ec9-4c6c-af03-a43189a9bb71"
+      : "bdaf9799-efc1-4f69-b497-c69f3ee39b0b";
+    if (data.name !== (release ? "meus-pontos" : "meus-pontos-homologacao") ||
+        (!release && (data.workers_dev !== false || data.preview_urls !== false)) ||
         data.routes || data.route ||
         data.d1_databases?.length !== 1 ||
         data.d1_databases[0].database_id !== expectedId ||
-        data.d1_databases[0].database_name !== dbName) {
-      throw new Error("Configuração do staging não é isolada. Teste abortado.");
+        data.d1_databases[0].database_name !== dbName ||
+        (release && (data.main !== "src/release-worker.js" ||
+           data.assets?.directory !== "./dist/release" ||
+           data.build?.command !== "npm run build:release"))) {
+      throw new Error("Configuração do Worker inesperada. Teste local abortado.");
     }
     return data;
   });
@@ -80,7 +87,7 @@ async function awaitReady(url, proc, output) {
   throw new Error("workerd local não iniciou: " + output().slice(-1500));
 }
 
-test("API real + Svelte staging com D1 isolado, via HTTP em workerd local", {
+test("API real + Svelte no Worker " + (release ? "de produção" : "staging") + " com D1 local efêmero", {
   timeout: 180000
 }, async () => {
   await lockedConfig();
@@ -146,7 +153,7 @@ test("API real + Svelte staging com D1 isolado, via HTTP em workerd local", {
 
     const doc = await fetch(url + "/");
     assert.equal(doc.status, 200);
-    assert.equal(doc.headers.get("X-Robots-Tag"), "noindex, nofollow, noarchive");
+    if (!release) assert.equal(doc.headers.get("X-Robots-Tag"), "noindex, nofollow, noarchive");
     assert.equal(doc.headers.get("Cache-Control"), "no-store");
     const html = await doc.text();
     assert.match(html, /manifest\.webmanifest/);

@@ -5,20 +5,27 @@ import releaseWorker from "../src/release-worker.js";
 
 const load = async p => readFile("dist/release/" + p, "utf8");
 
-test("release difere da produção atual SOMENTE em Worker wrapper e assets", async () => {
-  const old = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
-  const future = JSON.parse(await readFile("wrangler.release.jsonc", "utf8"));
-  assert.equal(future.name, old.name);
-  assert.equal(future.compatibility_date, old.compatibility_date);
-  assert.deepEqual(future.d1_databases, old.d1_databases);
-  assert.deepEqual(future.ratelimits, old.ratelimits);
-  assert.equal(future.main, "src/release-worker.js");
-  assert.equal(future.assets.binding, "ASSETS");
-  assert.equal(future.assets.directory, "./dist/release");
-  assert.equal(future.assets.run_worker_first, old.assets.run_worker_first);
-  for (const key of ["route","routes","workers_dev","preview_urls","env","vars"]) {
-    assert.deepEqual(future[key], old[key], key);
-  }
+test("Wrangler de produção publica Svelte automaticamente sem alterar D1, login ou rotas", async () => {
+  const cfg = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
+  assert.equal(cfg.name, "meus-pontos");
+  assert.equal(cfg.main, "src/release-worker.js");
+  assert.equal(cfg.compatibility_date, "2026-10-20");
+  assert.equal(cfg.assets.directory, "./dist/release");
+  assert.equal(cfg.assets.binding, "ASSETS");
+  assert.equal(cfg.assets.run_worker_first, true);
+  assert.equal(cfg.build.command, "npm run build:release");
+  assert.equal(cfg.d1_databases.length, 1);
+  assert.deepEqual(cfg.d1_databases[0], {
+    binding: "DB",
+    database_name: "meus-pontos",
+    database_id: "150895af-1ec9-4c6c-af03-a43189a9bb71"
+  });
+  assert.equal(cfg.ratelimits.length, 1);
+  assert.equal(cfg.ratelimits[0].name, "LOGIN_LIMITER");
+  assert.equal(cfg.ratelimits[0].namespace_id, "520261020");
+  assert.equal(cfg.routes, undefined);
+  assert.equal(cfg.route, undefined);
+  assert.equal(cfg.migrations, undefined);
 });
 
 test("release Svelte contém manifest, novo SW e arquivos legados só para transição", async () => {
@@ -76,14 +83,15 @@ test("wrapper impede cache de HTML/SW, mantém legacy no-store e asset imutável
     "public, max-age=31536000, immutable");
 });
 
-test("não há deploy automático, release exige confirmação e branch main", async () => {
-  const workflow = await readFile(".github/workflows/svelte-release.yml","utf8");
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /refs\/heads\/main/);
-  assert.match(workflow, /PUBLICAR_SVELTE_5/);
-  assert.match(workflow, /BACKUP_E_RESTAURACAO_VERIFICADOS/);
-  assert.match(workflow, /ROLLBACK_PREPARADO/);
-  assert.match(workflow, /npm run test:release/);
-  assert.match(workflow, /wrangler deploy --config wrangler\.release\.jsonc/);
-  assert.doesNotMatch(workflow, /wrangler d1 .*--remote/);
+test("o deploy automático usa o Wrangler principal e preserva a API", async () => {
+  const ci = await readFile(".github/workflows/ci.yml", "utf8");
+  const build = await readFile("scripts/build-release.mjs", "utf8");
+  const main = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
+  assert.match(ci, /wrangler deploy --config wrangler\.jsonc --dry-run/);
+  assert.match(ci, /node --test scripts\/staging-http\.test\.mjs/);
+  assert.match(ci, /E2E_RELEASE_LOCAL=1/);
+  assert.match(build, /scripts\/build-staging\.mjs/);
+  assert.doesNotMatch(build, /wrangler d1/);
+  assert.equal(main.build.command, "npm run build:release");
+  assert.doesNotMatch(ci, /wrangler d1 .*--remote/);
 });

@@ -1,4 +1,4 @@
-name: Publicar Meus Pontos na Cloudflare
+name: Publicação de emergência (alternativa ao Workers Builds)
 
 on:
   workflow_dispatch:
@@ -21,8 +21,12 @@ jobs:
           node-version: '22'
       - name: Instalar dependências fixadas
         run: npm ci --ignore-scripts
-      - name: Verificação TypeScript
-        run: npm run typecheck
+      - name: Verificações TypeScript, Svelte e pacote final
+        run: |
+          npm run typecheck
+          npm run check:frontend
+          npm run build:release
+          npm run test:release
       - name: Testes JavaScript
         run: npm test
       - name: Testes de integração no Workers e D1 local
@@ -30,7 +34,11 @@ jobs:
       - name: Testes de integridade do D1 em SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Smoke test no Chrome com API simulada
-        run: node --test scripts/browser-smoke.mjs
+        run: |
+          node --test scripts/browser-smoke.mjs
+          PILOT_ROOT=dist/release node --test scripts/browser-svelte-smoke.mjs
+      - name: Integração HTTP local do pacote de produção
+        run: E2E_RELEASE_LOCAL=1 node --test scripts/staging-http.test.mjs
       - name: Confirmar credenciais de implantação
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

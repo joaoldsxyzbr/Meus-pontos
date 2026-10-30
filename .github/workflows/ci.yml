@@ -31,7 +31,7 @@ jobs:
           npm run build:release
           npm run test:release
       - name: Validar pacote Wrangler de release sem deploy ou token
-        run: npx --no-install wrangler deploy --config wrangler.release.jsonc --dry-run --outdir dist/wrangler-release-check
+        run: npx --no-install wrangler deploy --config wrangler.jsonc --dry-run --outdir dist/wrangler-release-check
       - name: Verificar contratos TypeScript
         run: npm run typecheck
       - name: Testar JavaScript existente
@@ -40,6 +40,8 @@ jobs:
         run: npm run test:workers
       - name: Testar PWA Svelte com API HTTP real e D1 local
         run: node --test scripts/staging-http.test.mjs
+      - name: Testar configuração real do Worker Svelte com D1 local descartável
+        run: E2E_RELEASE_LOCAL=1 node --test scripts/staging-http.test.mjs
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Verificar sintaxe
