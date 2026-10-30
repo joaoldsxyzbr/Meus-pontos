@@ -1,6 +1,7 @@
 import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "./logic.js";
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 import { adjustmentsApi } from "./adjustments.js";
+import { correctionsApi } from "./corrections.js";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -152,6 +153,8 @@ export default {
       if (url.pathname === "/api/pontos" && request.method === "POST") return await register(request, env);
       if (url.pathname === "/api/historico" && request.method === "GET") return await history(request, env);
       if (url.pathname === "/api/saldo" && request.method === "GET") return await balance(env);
+      const correctionResponse = await correctionsApi(request, env, url);
+      if (correctionResponse) return correctionResponse;
       const adjustmentResponse = await adjustmentsApi(request, env, url);
       if (adjustmentResponse) return adjustmentResponse;
       return json({ error: "Rota não encontrada." }, 404);
