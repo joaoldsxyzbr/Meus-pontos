@@ -16,7 +16,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Testar JavaScript sem dependências
+      - name: Instalar dependências da versão fixa
+        run: npm ci --ignore-scripts
+      - name: Verificar contratos TypeScript
+        run: npm run typecheck
+      - name: Testar JavaScript existente
         run: npm test
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
