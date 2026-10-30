@@ -61,7 +61,7 @@ const script = String.raw`
     correctionReason.value = "Teste sintético de correção";
     correctionReason.dispatchEvent(new Event("input", { bubbles: true }));
     document.querySelector("#correction-form").requestSubmit();
-    await wait(() => document.querySelector("#correction-list")?.textContent.includes("Correção salva."));
+    await wait(() => document.querySelector(".correction-card [role=\"status\"]")?.textContent.includes("Correção salva."));
     stage = "saldo";
     document.querySelector('[data-tab="saldo"]').click();
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("0h00"));
