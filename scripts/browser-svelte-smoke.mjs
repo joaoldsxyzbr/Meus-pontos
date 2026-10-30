@@ -47,9 +47,38 @@ const script = String.raw`
     stage = "historico";
     document.querySelector('[data-tab="historico"]').click();
     await wait(() => document.querySelector("#history-summary")?.textContent.includes("dias no período"));
+    stage = "correcoes";
+    window.confirm = () => true;
+    await wait(() => document.querySelector("#correction-heading"));
+    document.querySelector(".correction-row .ledger-outline").click();
+    await wait(() => document.querySelector("#correction-list button"));
+    document.querySelector("#correction-list button").click();
+    await wait(() => document.querySelector("#correction-form"));
+    const edited = document.querySelector("#correction-time");
+    edited.value = "08:30";
+    edited.dispatchEvent(new Event("input", { bubbles: true }));
+    const correctionReason = document.querySelector("#correction-reason");
+    correctionReason.value = "Teste sintético de correção";
+    correctionReason.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector("#correction-form").requestSubmit();
+    await wait(() => document.querySelector("#correction-list")?.textContent.includes("Correção salva."));
     stage = "saldo";
     document.querySelector('[data-tab="saldo"]').click();
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("0h00"));
+    stage = "ajustes";
+    await wait(() => document.querySelector("#ledger-list") &&
+      !document.querySelector("#ledger-list").textContent.includes("Carregando"));
+    document.querySelector(".ledger-heading button").click();
+    await wait(() => document.querySelector("#ledger-form"));
+    const durationInput = document.querySelector('#ledger-form input[placeholder="01:30"]');
+    durationInput.value = "01:30";
+    durationInput.dispatchEvent(new Event("input", { bubbles: true }));
+    const adjustmentReason = document.querySelector('#ledger-form input[placeholder^="Ex.:"]');
+    adjustmentReason.value = "Crédito sintético de teste";
+    adjustmentReason.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector("#ledger-form").requestSubmit();
+    await wait(() => document.querySelectorAll(".ledger-item").length === 1);
+    await wait(() => document.querySelector("#balance-total")?.textContent.includes("+1h30"));
     stage = "retorno";
     document.querySelector('[data-tab="ponto"]').click();
     await wait(() => Boolean(document.querySelector("#page-ponto")));
@@ -77,7 +106,7 @@ function chromeBinary() {
 
 async function serve() {
   const requests = [];
-  const state = { authenticated: false, points: [] };
+  const state = { authenticated: false, points: [], adjustments: [], nextId: 1 };
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, "http://localhost");
     response.setHeader("Cache-Control", "no-store");
@@ -88,7 +117,7 @@ async function serve() {
         if (!state.authenticated) { status = 401; data = { error: "Sessão expirada ou inválida." }; }
         else data = { autenticado: true };
       } else if (url.pathname === "/api/login" && request.method === "POST") {
-        state.authenticated = true; data = { ok: true, usuario: "teste-ui" };
+        state.authenticated = true; state.points = []; state.adjustments = []; data = { ok: true, usuario: "teste-ui" };
       } else if (!state.authenticated) {
         status = 401; data = { error: "Sessão expirada ou inválida." };
       } else if (url.pathname === "/api/pontos" && request.method === "POST") {
@@ -97,13 +126,26 @@ async function serve() {
         const point = JSON.parse(body);
         if (state.points.length) { status = 409; data = { error: "Conflito." }; }
         else {
-          state.points.push({ tipo: point.tipo, horario: point.horario });
+          state.points.push({ id: 1, data: dateBrazil(), tipo: point.tipo, horario: point.horario });
           status = 201;
           data = { ok: true, type: point.tipo, date: dateBrazil(), now: point.horario,
             points: state.points, next_type: "ida_intervalo",
             expected_steps: ["entrada","ida_intervalo","volta_intervalo","saida"],
             carga_minutos: 480, usa_intervalo: true, justificativa: null,
             total_trabalhado_minutos: null, saldo_minutos: null, pendencia: null };
+        }
+      } else if (url.pathname === "/api/pontos/consultar") {
+        data = { data: url.searchParams.get("data"), pontos: state.points };
+      } else if (url.pathname === "/api/pontos/corrigir" && request.method === "POST") {
+        let raw = "";
+        for await (const part of request) raw += part;
+        const change = JSON.parse(raw);
+        const point = state.points.find(item => item.id === change.id);
+        if (!point) { status = 409; data = { error: "Registro mudou." }; }
+        else {
+          if (change.acao === "editar") point.horario = change.horario;
+          else state.points = state.points.filter(item => item.id !== change.id);
+          data = { ok: true };
         }
       } else if (url.pathname === "/api/hoje") {
         data = { date: dateBrazil(), now: "09:00", points: state.points,
@@ -113,9 +155,38 @@ async function serve() {
           total_trabalhado_minutos: null, saldo_minutos: null, pendencia: null };
       } else if (url.pathname === "/api/historico") {
         data = { month: dateBrazil().slice(0, 7), days: [] };
+      } else if (url.pathname === "/api/ajustes" && request.method === "GET") {
+        data = { ajustes: state.adjustments, proximo_offset: null };
+      } else if (url.pathname === "/api/ajustes" && request.method === "POST") {
+        let raw = "";
+        for await (const part of request) raw += part;
+        const body = JSON.parse(raw);
+        const [hours, minutes] = body.duracao.split(":").map(Number);
+        const valor = (hours * 60 + minutes) * (body.tipo === "debito" ? -1 : 1);
+        const item = { id: state.nextId++, data: body.data, minutos: valor,
+          motivo: body.motivo, criado_em: new Date().toISOString() };
+        state.adjustments.unshift(item); status = 201; data = { ok: true, id: item.id };
+      } else if (/^\\/api\\/ajustes\\/\\d+$/.test(url.pathname)) {
+        const id = Number(url.pathname.split("/").at(-1));
+        const item = state.adjustments.find(row => row.id === id);
+        if (!item) { status = 404; data = { error: "Ajuste não encontrado." }; }
+        else if (request.method === "DELETE") {
+          state.adjustments = state.adjustments.filter(row => row.id !== id);
+          data = { ok: true };
+        } else if (request.method === "PUT") {
+          let raw = "";
+          for await (const part of request) raw += part;
+          const body = JSON.parse(raw);
+          const [hours, minutes] = body.duracao.split(":").map(Number);
+          item.data = body.data;
+          item.minutos = (hours * 60 + minutes) * (body.tipo === "debito" ? -1 : 1);
+          item.motivo = body.motivo;
+          data = { ok: true, id };
+        } else { status = 405; data = { error: "Método não permitido." }; }
       } else if (url.pathname === "/api/saldo") {
-        data = { saldo_total_minutos: 0, saldo_ajustes_minutos: 0, saldo_batidas_minutos: 0,
-          faltas: 0, pendencias: 0, ajustes: 0 };
+        const sum = state.adjustments.reduce((a, row) => a + row.minutos, 0);
+        data = { saldo_total_minutos: sum, saldo_ajustes_minutos: sum, saldo_batidas_minutos: 0,
+          faltas: 0, pendencias: 0, ajustes: state.adjustments.length };
       } else if (url.pathname === "/api/sair" && request.method === "POST") {
         state.authenticated = false; data = { ok: true };
       } else { status = 404; data = { error: "Rota não encontrada." }; }
@@ -184,5 +255,8 @@ test("Svelte 5 renderiza, autentica e navega em desktop/mobile sem API real", { 
     assert.ok(requests.some(r => r.path === "/api/pontos" && r.method === "POST"));
     assert.ok(requests.some(r => r.path === "/api/historico"));
     assert.ok(requests.some(r => r.path === "/api/saldo"));
+    assert.ok(requests.some(r => r.path === "/api/pontos/consultar" && r.method === "GET"));
+    assert.ok(requests.some(r => r.path === "/api/pontos/corrigir" && r.method === "POST"));
+    assert.ok(requests.some(r => r.path === "/api/ajustes" && r.method === "POST"));
   } finally { server.close(); }
 });
