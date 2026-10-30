@@ -298,4 +298,36 @@ describe("API HTTP real executada no Workers com D1 local", () => {
     const after = await call("/api/saldo", { cookie });
     expect(await after.json()).toMatchObject({ saldo_ajustes_minutos: 0, ajustes: 0 });
   });
+  it("preserva os códigos HTTP antigos para métodos, formatos e rotas desconhecidas", async () => {
+    const unauthorizedUnknown = await call("/api/rota-inexistente");
+    expect(unauthorizedUnknown.status).toBe(401);
+
+    const invalidCredentials = await call("/api/login", {
+      method: "POST", body: { usuario: 123, senha: PASSWORD }
+    });
+    expect(invalidCredentials.status).toBe(401);
+    const cookie = await login();
+
+    const invalidMonth = await call("/api/historico?mes=2026-13", { cookie });
+    expect(invalidMonth.status).toBe(400);
+    const invalidTime = await call("/api/pontos", {
+      method: "POST", cookie, body: { data: today, tipo: "entrada", horario: "24:00" }
+    });
+    expect(invalidTime.status).toBe(400);
+    const staleType = await call("/api/pontos", {
+      method: "POST", cookie, body: { data: today, tipo: "tipo-invalido", horario: "09:00" }
+    });
+    expect(staleType.status).toBe(409);
+
+    const unsupported = await call("/api/hoje", { method: "OPTIONS", cookie });
+    expect(unsupported.status).toBe(405);
+    const unknown = await call("/api/rota-inexistente", { cookie });
+    expect(unknown.status).toBe(404);
+    const badAdjustMethod = await call("/api/ajustes/5", {
+      method: "POST", body: {}, cookie
+    });
+    expect(badAdjustMethod.status).toBe(405);
+    expect(badAdjustMethod.headers.get("Cache-Control")).toBe("no-store");
+  });
+
 });
