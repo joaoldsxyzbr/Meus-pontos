@@ -79,6 +79,22 @@ const script = String.raw`
     document.querySelector("#ledger-form").requestSubmit();
     await wait(() => document.querySelectorAll(".ledger-item").length === 1);
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("+1h30"));
+    stage = "editar-ajuste";
+    document.querySelector(".ledger-item .ledger-link").click();
+    await wait(() => document.querySelector("#ledger-form"));
+    const editedDuration = document.querySelector('#ledger-form input[placeholder="01:30"]');
+    editedDuration.value = "00:30";
+    editedDuration.dispatchEvent(new Event("input", { bubbles: true }));
+    const debit = document.querySelector("#ledger-form select");
+    debit.value = "debito";
+    debit.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector("#ledger-form").requestSubmit();
+    await wait(() => document.querySelector(".ledger-item")?.textContent.includes("−0h30"));
+    await wait(() => document.querySelector("#balance-total")?.textContent.includes("−0h30"));
+    stage = "excluir-ajuste";
+    document.querySelector(".ledger-item .ledger-danger").click();
+    await wait(() => document.querySelectorAll(".ledger-item").length === 0);
+    await wait(() => document.querySelector("#balance-total")?.textContent.includes("0h00"));
     stage = "retorno";
     document.querySelector('[data-tab="ponto"]').click();
     await wait(() => Boolean(document.querySelector("#page-ponto")));
@@ -258,5 +274,7 @@ test("Svelte 5 renderiza, autentica e navega em desktop/mobile sem API real", { 
     assert.ok(requests.some(r => r.path === "/api/pontos/consultar" && r.method === "GET"));
     assert.ok(requests.some(r => r.path === "/api/pontos/corrigir" && r.method === "POST"));
     assert.ok(requests.some(r => r.path === "/api/ajustes" && r.method === "POST"));
+    assert.ok(requests.some(r => r.path.startsWith("/api/ajustes/") && r.method === "PUT"));
+    assert.ok(requests.some(r => r.path.startsWith("/api/ajustes/") && r.method === "DELETE"));
   } finally { server.close(); }
 });
