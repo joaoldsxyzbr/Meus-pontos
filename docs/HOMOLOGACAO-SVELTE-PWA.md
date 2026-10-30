@@ -50,20 +50,32 @@ com `VITE_STAGING_PWA=1`. O build normal `npm run build:frontend`
 2. Preparar os segredos exclusivos de homologação:
    `PONTO_USERNAME`, `PONTO_PASSWORD_RECORD`, `PONTO_SESSION_SECRET`.
    Não reutilizar os de produção. Validar o rate limiter separado.
-3. Em **staging somente**, criar as tabelas mínimas do esquema conforme
-   `tests/fixtures/d1-base.sql`, aplicar a migração 0001 e popular
-   `jornada_padrao` com 7 linhas e `config.inicio_contagem`
-   com data sintética. **Não executar esses comandos no banco real**.
-   No estágio, conciliar a tabela `d1_migrations` antes de automatizar
-   as próximas versões.
-4. Fazer `wrangler deploy --config wrangler.staging.jsonc` apenas após
-   as validações, com `workers_dev=false`, `preview_urls=false`.
+3. **Já realizado, apenas no staging:** criação das tabelas conforme
+   `tests/fixtures/d1-base.sql`, aplicação de 0001 e carga sintética com
+   `jornada_padrao` (7 linhas) e `config.inicio_contagem=2026-10-30`.
+   Não reaplicar a migração sem conferir a situação atual. Como foi aplicada
+   diretamente por SQL, **o journal `d1_migrations` ainda precisa ser
+   conciliado antes de executar migrações automáticas remotas**.
+   Jamais executar esses comandos no D1 de produção.
+4. O workflow `.github/workflows/staging-deploy.yml` oferece deploy
+   **manual somente pela main**, com CI, verificação de D1 distinto e
+   `workers_dev=false`, `preview_urls=false`. Configurar os segredos
+   de GitHub Actions `CLOUDFLARE_STAGING_API_TOKEN` e
+   `CLOUDFLARE_ACCOUNT_ID` com permissões mínimas. Nunca usar o token
+   de produção no workflow de staging.
 5. Habilitar URL específica apenas quando Access bloqueando visitantes
    não autorizados estiver confirmado por teste real de HTTP.
 6. Validar login, batidas, edição/exclusão, auditoria, ajustes e
    instalação/atualização da PWA no Android/iOS usando **somente dados fictícios**.
 7. Registrar resultados e rollback. Para produção, será preciso tratar
    migração de caches da PWA legada e comparar saldo antes/depois.
+
+## Estado atual de implantação
+
+O D1 está preparado, mas **nenhum Worker de staging foi implantado** e não
+há hostname público de homologação. O fluxo manual de deploy só prepara o
+Worker inacessível pela web. Para homologar em navegador real, concluir
+antes a política Cloudflare Access e verificar acesso negado sem identidade.
 
 ## Rollback
 - Como staging é Worker e D1 independentes, não há rollback de produção.
