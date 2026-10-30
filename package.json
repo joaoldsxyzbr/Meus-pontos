@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test tests/*.test.js",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm test && npm run test:workers",
     "test:workers": "vitest run --config vitest.config.ts"

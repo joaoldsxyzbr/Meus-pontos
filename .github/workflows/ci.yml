@@ -16,15 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # TEMPORÁRIO para materializar package-lock pela execução remota; removido antes do merge.
-      - name: Gerar lockfile de teste para versionamento
-        run: |
-          rm package-lock.json
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --legacy-peer-deps --loglevel verbose || { tail -n 100 /home/runner/.npm/_logs/*-debug-0.log; exit 1; }
-          echo 'BEGIN_LOCKFILE_BASE64'
-          base64 -w0 package-lock.json
-          echo
-          echo 'END_LOCKFILE_BASE64'
       - name: Instalar dependências da versão fixa
         run: npm ci --ignore-scripts
       - name: Verificar contratos TypeScript
