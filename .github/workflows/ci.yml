@@ -20,7 +20,7 @@ jobs:
       - name: Gerar lockfile para as dependências Svelte
         run: |
           rm package-lock.json
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund --legacy-peer-deps
           echo BEGIN_LOCKFILE_BASE64
           base64 -w0 package-lock.json
           echo
