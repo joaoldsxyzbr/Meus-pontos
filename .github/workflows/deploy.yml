@@ -1,0 +1,41 @@
+name: Publicar Meus Pontos na Cloudflare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-meus-pontos-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Validar e publicar Worker + PWA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testes JavaScript
+        run: npm test
+      - name: Testes de integridade do D1 em SQLite
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Smoke test no Chrome com API simulada
+        run: node --test scripts/browser-smoke.mjs
+      - name: Confirmar credenciais de implantação
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Configure CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID nos Actions secrets antes de executar este workflow."
+            exit 1
+          fi
+      - name: Implantar Worker e arquivos do PWA
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 deploy
