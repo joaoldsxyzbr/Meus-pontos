@@ -166,7 +166,7 @@ async function serve() {
         const item = { id: state.nextId++, data: body.data, minutos: valor,
           motivo: body.motivo, criado_em: new Date().toISOString() };
         state.adjustments.unshift(item); status = 201; data = { ok: true, id: item.id };
-      } else if (/^\\/api\\/ajustes\\/\\d+$/.test(url.pathname)) {
+      } else if (/^\/api\/ajustes\/\d+$/.test(url.pathname)) {
         const id = Number(url.pathname.split("/").at(-1));
         const item = state.adjustments.find(row => row.id === id);
         if (!item) { status = 404; data = { error: "Ajuste não encontrado." }; }
