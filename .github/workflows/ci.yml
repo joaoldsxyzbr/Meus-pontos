@@ -26,6 +26,12 @@ jobs:
         run: npm run build:staging
       - name: Testar configuração e política de cache do staging
         run: npm run test:staging
+      - name: Construir e validar pacote Svelte para substituição futura
+        run: |
+          npm run build:release
+          npm run test:release
+      - name: Validar pacote Wrangler de release sem deploy ou token
+        run: npx --no-install wrangler deploy --config wrangler.release.jsonc --dry-run --outdir dist/wrangler-release-check
       - name: Verificar contratos TypeScript
         run: npm run typecheck
       - name: Testar JavaScript existente
@@ -65,3 +71,7 @@ jobs:
         run: |
           npm run build:staging
           PILOT_ROOT=dist/staging node --test scripts/browser-svelte-smoke.mjs
+      - name: Testar pacote final Svelte em Chrome desktop/mobile
+        run: |
+          npm run build:release
+          PILOT_ROOT=dist/release node --test scripts/browser-svelte-smoke.mjs

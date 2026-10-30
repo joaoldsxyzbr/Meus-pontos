@@ -1,3 +1,5 @@
+> **Histórico / descontinuado (30/10/2026):** a hospedagem de homologação pública e o Cloudflare Access foram retirados do escopo pela decisão registrada na issue #5. **Não seguir as instruções de implantação remota abaixo.** O D1 remoto já criado permanece inativo e não deve ser usado; a validação oficial é local pelo CI e a publicação futura usará o fluxo manual documentado em `docs/RELEASE-SVELTE-CONTROLADA.md`. O workflow de deploy de staging foi excluído.
+
 # Homologação isolada — Svelte 5 e PWA
 
 ## Situação e limitações

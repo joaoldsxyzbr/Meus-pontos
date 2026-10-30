@@ -11,7 +11,9 @@
     "check:frontend": "svelte-check --tsconfig frontend/tsconfig.json",
     "build:frontend": "vite build --config vite.frontend.config.ts",
     "build:staging": "node scripts/build-staging.mjs",
-    "test:staging": "node --test scripts/staging.test.mjs"
+    "test:staging": "node --test scripts/staging.test.mjs",
+    "build:release": "node scripts/build-release.mjs",
+    "test:release": "node --test scripts/release.test.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.0",
