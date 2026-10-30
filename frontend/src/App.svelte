@@ -85,6 +85,18 @@
     void loadTab();
   }
 
+  function afterCorrections() {
+    history = null;
+    day = null;
+    balance = null;
+    void loadTab();
+  }
+
+  function afterAdjustments() {
+    balance = null;
+    void loadTab();
+  }
+
   function changeMonth(value: string) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return;
     month = value;
@@ -185,9 +197,10 @@
       <Ponto {day} {loading} {register} refresh={loadTab} {notify}/>
     {/key}
   {:else if tab === "historico"}
-    <Historico {month} data={history} {loading} {changeMonth}/>
+    <Historico {month} data={history} {loading} {changeMonth}
+      changed={afterCorrections} {notify} onError={errorMessage}/>
   {:else}
-    <Banco data={balance} {loading}/>
+    <Banco data={balance} {loading} changed={afterAdjustments} {notify} onError={errorMessage}/>
   {/if}
 </main>
 

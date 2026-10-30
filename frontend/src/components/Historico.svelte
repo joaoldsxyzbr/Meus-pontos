@@ -1,12 +1,16 @@
 <script lang="ts">
   import type { HistoryResponse } from "../../../src/shared/contracts";
   import { displayDate, minutesText } from "../lib/time";
+  import Correcoes from "./Correcoes.svelte";
 
-  let { month, data, loading, changeMonth }: {
+  let { month, data, loading, changeMonth, changed, notify, onError }: {
     month: string;
     data: HistoryResponse | null;
     loading: boolean;
     changeMonth: (month: string) => void;
+    changed: () => void;
+    notify: (message: string) => void;
+    onError: (error: unknown) => string;
   } = $props();
 
   let total = $derived(data?.days.reduce((sum, day) => sum + (day.saldo_minutos ?? 0), 0) ?? 0);
@@ -64,5 +68,5 @@
       {/each}
     {/if}
   </div>
-  <p class="hint">Piloto Svelte: correção de batidas será migrada em uma próxima etapa.</p>
+  <Correcoes {changed} {notify} {onError}/>
 </section>
