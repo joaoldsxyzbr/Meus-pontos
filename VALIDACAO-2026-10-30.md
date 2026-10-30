@@ -37,10 +37,10 @@ A comparação considera o conjunto de dados existente na data da execução. **
 ## Testes de software
 - GitHub Actions no PR: `npm test` (Node), testes de migração em SQLite/Python, sintaxe JS e Chrome headless desktop/mobile com API simulada.
 - Teste de autenticação real no celular físico ainda **não realizado**.
-- Após a alteração que permite registrar trabalho em folgas, aguardar o CI do último commit do PR.
+- Após a alteração que permite registrar trabalho em folgas, o CI do commit `49fbb47ae12330eedd039166f4a36d3bcbbbe542` foi **aprovado**: https://github.com/joaoldsxyzbr/Meus-pontos/actions/runs/41092172316.
 
 ## Pendências antes de alterar produção
-- [ ] Validar o novo HEAD do PR pelo CI completo.
+- [x] Validar a implementação funcional do PR pelo CI completo (commit `49fbb47a`; conferir novamente no HEAD antes do merge).
 - [ ] Verificar segurança do backup, idealmente também em arquivo externo armazenado com acesso privado.
 - [ ] Confirmar se existe referência para sábado alternado e datas de justificativas; não configurar por presunção.
 - [ ] Testar em aparelho físico com login real.

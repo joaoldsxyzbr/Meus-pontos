@@ -33,3 +33,10 @@ Esta branch deriva exclusivamente da main no commit 0fb5670. O PR #4 é rascunho
 - A exclusão de pontos é restrita ao último registro daquele dia; não há edição de tipo sem auditoria própria.
 - Não armazenar logs, credenciais, saldos pessoais, backups ou motivos no GitHub.
 - Nenhum PR desta mudança autoriza automaticamente um deploy em produção.
+
+## Evidências de 30/10/2026
+
+Foi criada uma cópia persistente **no D1 da mesma conta Cloudflare** com o nome `meus-pontos-backup-20261030` e outra base para testes `meus-pontos-auditoria-20261030`.
+A comparação por linhas confirmou 35 pontos e 8 objetos de esquema, e a migração executada somente na cópia de testes manteve os 11 dias históricos e o saldo total sem divergências.
+
+Consulte [VALIDACAO-2026-10-30.md](VALIDACAO-2026-10-30.md). Esse procedimento **não exportou nem verificou um arquivo SQL fora da Cloudflare**. Se precisar de independência da conta ou de recuperação fora da Cloudflare, providencie uma exportação externa antes da mudança em produção.

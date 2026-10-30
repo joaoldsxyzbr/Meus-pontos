@@ -77,3 +77,6 @@ Os testes JavaScript usam apenas recursos nativos do Node.js. O GitHub Actions t
 - O formulário de correções aceita editar **somente o horário** preservando a ordem, ou excluir **a última** batida da data. Alterações exigem motivo e são salvas na tabela `auditoria_pontos`. Mudanças arbitrárias de tipo ou sequência precisam de revisão assistida, não de alteração silenciosa.
 - O navegador envia `data`, `tipo` e `horario`; o Worker rejeita estado obsoleto com HTTP 409. Aparelhos com cache antigo precisam atualizar o PWA.
 - O D1 e as views são a fonte oficial do saldo. Nenhuma alteração estrutural deve ser implantada sem validação prévia: [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
+
+- Em dia de folga ou feriado, a pessoa pode optar por registrar trabalho mediante confirmação explícita; o saldo é calculado com carga prevista zero quando a regra justificar a folga.
+- Evidências de backup persistente no D1 e teste de migração isolada: [VALIDACAO-2026-10-30.md](VALIDACAO-2026-10-30.md).
