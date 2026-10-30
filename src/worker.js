@@ -1,4 +1,6 @@
-import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "./logic.js";
+import { Hono } from "hono";
+import { brazilNow, weekday, nextType, expectedTypes } from "./logic.js";
+import { loginSchema, timeSchema, pointTypeSchema, monthSchema } from "./shared/schemas.js";
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 import { adjustmentsApi } from "./adjustments.js";
 import { correctionsApi } from "./corrections.js";
@@ -33,11 +35,10 @@ async function login(request, env) {
   if (Number(request.headers.get("Content-Length") || 0) > 2048) return json({ error: "Dados muito longos." }, 413);
   let input;
   try { input = await request.json(); } catch { return json({ error: "Dados inválidos." }, 400); }
-  const username = input?.usuario;
-  const password = input?.senha;
-  if (typeof username !== "string" || username.length > 80 || typeof password !== "string" || password.length > 256) {
-    return json({ error: "Usuário ou senha inválidos." }, 401);
-  }
+  const credentials = loginSchema.safeParse(input);
+  if (!credentials.success) return json({ error: "Usuário ou senha inválidos." }, 401);
+  const username = credentials.data.usuario;
+  const password = credentials.data.senha;
   if (!(await checkCredentials(username, password, env))) {
     return json({ error: "Usuário ou senha inválidos." }, 401);
   }
@@ -93,12 +94,12 @@ async function register(request, env) {
   let body;
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400); }
   const time = body?.horario;
-  if (!validTime(time)) return json({ error: "Horário inválido." }, 400);
+  if (!timeSchema.safeParse(time).success) return json({ error: "Horário inválido." }, 400);
   const now = brazilNow();
   // A data e o tipo precisam corresponder ao que a pessoa viu na tela.
   // Clientes antigos sem esses campos falham de forma segura, sem gravar um tipo inesperado.
   if (body?.data !== now.date) return json({ error: "O dia mudou. Atualize os registros antes de bater o ponto." }, 409);
-  if (!["entrada", "ida_intervalo", "volta_intervalo", "saida"].includes(body?.tipo))
+  if (!pointTypeSchema.safeParse(body?.tipo).success)
     return json({ error: "Atualize o aplicativo antes de registrar um novo ponto." }, 409);
 
   const [schedule, result] = await Promise.all([
@@ -129,7 +130,7 @@ async function register(request, env) {
 async function history(request, env) {
   const currentMonth = brazilNow().date.slice(0, 7);
   const month = new URL(request.url).searchParams.get("mes") || currentMonth;
-  if (!validMonth(month)) return json({ error: "Mês inválido." }, 400);
+  if (!monthSchema.safeParse(month).success) return json({ error: "Mês inválido." }, 400);
   const records = await env.DB.prepare(
     "SELECT data, entrada, ida_intervalo, volta_intervalo, saida, total_trabalhado_minutos, carga_prevista, saldo_minutos, origem, pendencia FROM resumo_diario WHERE data BETWEEN ? AND ? ORDER BY data DESC"
   ).bind(month + "-01", month + "-31").all();
@@ -144,45 +145,75 @@ async function balance(env) {
   return json({ ...summary, ajustes: adjustments?.quantidade || 0 });
 }
 
+// Mantém as respostas HTTP anteriores enquanto torna as rotas explícitas.
+const api = new Hono();
+
+api.onError((error) => {
+  console.error("Falha em operação D1:", error?.name || "Erro");
+  return json({ error: "Não foi possível consultar o banco. Tente novamente." }, 500);
+});
+
+api.use("/api/*", async (c, next) => {
+  const request = c.req.raw;
+  if (!["GET", "POST", "PUT", "DELETE"].includes(request.method))
+    return json({ error: "Método não permitido." }, 405);
+  if (request.method !== "GET" && !acceptedPostOrigin(request))
+    return json({ error: "Origem não permitida." }, 403);
+  if (!authConfigured(c.env))
+    return json({ error: "Login ainda não configurado no Worker." }, 503);
+  await next();
+});
+
+api.post("/api/login", (c) => login(c.req.raw, c.env));
+api.get("/api/sessao", async (c) =>
+  await verifySession(c.req.raw, c.env)
+    ? json({ autenticado: true, usuario: c.env.PONTO_USERNAME })
+    : json({ error: "Sessão expirada ou inválida." }, 401)
+);
+api.post("/api/sair", () =>
+  json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() })
+);
+
+api.use("/api/*", async (c, next) => {
+  if (!(await verifySession(c.req.raw, c.env)))
+    return json({ error: "Sessão expirada ou inválida." }, 401);
+  if (!c.env.DB) return json({ error: "Banco não configurado." }, 503);
+  await next();
+});
+
+api.get("/api/hoje", (c) => today(c.env).then(data => json(data)));
+api.post("/api/pontos", (c) => register(c.req.raw, c.env));
+api.get("/api/historico", (c) => history(c.req.raw, c.env));
+api.get("/api/saldo", (c) => balance(c.env));
+
+// Correções e ajustes preservam a validação existente nos módulos de domínio.
+api.get("/api/pontos/consultar", async (c) =>
+  (await correctionsApi(c.req.raw, c.env, new URL(c.req.url))) ??
+    json({ error: "Rota não encontrada." }, 404)
+);
+api.post("/api/pontos/corrigir", async (c) =>
+  (await correctionsApi(c.req.raw, c.env, new URL(c.req.url))) ??
+    json({ error: "Rota não encontrada." }, 404)
+);
+api.on(["GET", "POST", "PUT", "DELETE"], ["/api/ajustes", "/api/ajustes/:id"],
+  async (c) =>
+    (await adjustmentsApi(c.req.raw, c.env, new URL(c.req.url))) ??
+      json({ error: "Rota não encontrada." }, 404)
+);
+api.notFound(() => json({ error: "Rota não encontrada." }, 404));
+
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if (!url.pathname.startsWith("/api/")) {
-      if (!env.ASSETS) return new Response("Assets não configurados.", { status: 503 });
-      const response = await env.ASSETS.fetch(request);
-      const responseHeaders = new Headers(response.headers);
-      responseHeaders.set("X-Content-Type-Options", "nosniff");
-      responseHeaders.set("Referrer-Policy", "no-referrer");
-      responseHeaders.set("X-Frame-Options", "DENY");
-      responseHeaders.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
-      return new Response(response.body, { status: response.status, headers: responseHeaders });
-    }
-    if (!["GET", "POST", "PUT", "DELETE"].includes(request.method)) return json({ error: "Método não permitido." }, 405);
-    if (request.method !== "GET" && !acceptedPostOrigin(request)) return json({ error: "Origem não permitida." }, 403);
-    if (!authConfigured(env)) return json({ error: "Login ainda não configurado no Worker." }, 503);
-    try {
-      if (url.pathname === "/api/login" && request.method === "POST") return await login(request, env);
-      if (url.pathname === "/api/sessao" && request.method === "GET") {
-        return await verifySession(request, env) ? json({ autenticado: true, usuario: env.PONTO_USERNAME }) :
-          json({ error: "Sessão expirada ou inválida." }, 401);
-      }
-      if (url.pathname === "/api/sair" && request.method === "POST") {
-        return json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() });
-      }
-      if (!(await verifySession(request, env))) return json({ error: "Sessão expirada ou inválida." }, 401);
-      if (!env.DB) return json({ error: "Banco não configurado." }, 503);
-      if (url.pathname === "/api/hoje" && request.method === "GET") return json(await today(env));
-      if (url.pathname === "/api/pontos" && request.method === "POST") return await register(request, env);
-      if (url.pathname === "/api/historico" && request.method === "GET") return await history(request, env);
-      if (url.pathname === "/api/saldo" && request.method === "GET") return await balance(env);
-      const correctionResponse = await correctionsApi(request, env, url);
-      if (correctionResponse) return correctionResponse;
-      const adjustmentResponse = await adjustmentsApi(request, env, url);
-      if (adjustmentResponse) return adjustmentResponse;
-      return json({ error: "Rota não encontrada." }, 404);
-    } catch (error) {
-      console.error("Falha em operação D1:", error?.name || "Erro");
-      return json({ error: "Não foi possível consultar o banco. Tente novamente." }, 500);
-    }
+  async fetch(request, env, ctx) {
+    if (new URL(request.url).pathname.startsWith("/api/"))
+      return api.fetch(request, env, ctx);
+
+    if (!env.ASSETS) return new Response("Assets não configurados.", { status: 503 });
+    const response = await env.ASSETS.fetch(request);
+    const responseHeaders = new Headers(response.headers);
+    responseHeaders.set("X-Content-Type-Options", "nosniff");
+    responseHeaders.set("Referrer-Policy", "no-referrer");
+    responseHeaders.set("X-Frame-Options", "DENY");
+    responseHeaders.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+    return new Response(response.body, { status: response.status, headers: responseHeaders });
   }
 };

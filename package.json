@@ -14,5 +14,9 @@
     "@cloudflare/vitest-plugin": "^1.0.0",
     "vitest": "^4.1.0",
     "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "hono": "^4.10.0",
+    "zod": "^4.0.0"
   }
 }
