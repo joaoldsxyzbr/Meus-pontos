@@ -22,6 +22,10 @@ jobs:
         run: npm run check:frontend
       - name: Construir piloto Svelte sem tocar nos assets de produção
         run: npm run build:frontend
+      - name: Construir pacote PWA de homologação isolado
+        run: npm run build:staging
+      - name: Testar configuração e política de cache do staging
+        run: npm run test:staging
       - name: Verificar contratos TypeScript
         run: npm run typecheck
       - name: Testar JavaScript existente
@@ -55,3 +59,7 @@ jobs:
           npm run build:frontend
       - name: Smoke test do piloto Svelte em Chrome desktop/mobile
         run: node --test scripts/browser-svelte-smoke.mjs
+      - name: Testar bundle PWA de homologação em Chrome
+        run: |
+          npm run build:staging
+          PILOT_ROOT=dist/staging node --test scripts/browser-svelte-smoke.mjs

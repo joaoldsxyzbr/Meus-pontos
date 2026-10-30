@@ -7,7 +7,7 @@ import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 
 /** Smoke de frontend isolado, com API simulada — nunca faz chamadas externas. */
-const root = path.resolve("dist/svelte-pilot");
+const root = path.resolve(process.env.PILOT_ROOT || "dist/svelte-pilot");
 const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
   ".svg": "image/svg+xml" };
 const script = String.raw`
