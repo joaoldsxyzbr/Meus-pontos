@@ -32,6 +32,8 @@ jobs:
         run: npm test
       - name: Integrar Worker e D1 local no runtime workerd
         run: npm run test:workers
+      - name: Testar PWA Svelte com API HTTP real e D1 local
+        run: node --test scripts/staging-http.test.mjs
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Verificar sintaxe
