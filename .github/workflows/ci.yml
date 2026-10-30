@@ -22,6 +22,8 @@ jobs:
         run: npm run typecheck
       - name: Testar JavaScript existente
         run: npm test
+      - name: Integrar Worker e D1 local no runtime workerd
+        run: npm run test:workers
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Verificar sintaxe
