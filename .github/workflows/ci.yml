@@ -18,8 +18,24 @@ jobs:
           node-version: '22'
       - name: Testar JavaScript sem dependências
         run: npm test
+      - name: Testar migrações SQL SQLite
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Verificar sintaxe
         run: |
           node --check src/worker.js
           node --check public/app.js
           node --check public/sw.js
+          node --check public/ajustes.js
+          node --check public/correcoes.js
+          node --check src/corrections.js
+          node --check src/schedule.js
+  browser:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Smoke test PWA em Chrome desktop/mobile (API simulada)
+        run: node --test scripts/browser-smoke.mjs

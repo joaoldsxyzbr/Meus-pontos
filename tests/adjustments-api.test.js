@@ -54,3 +54,11 @@ test("Scripts adicionais passam na verificação de sintaxe nativa", () => {
     assert.equal(run.status, 0, path + ": " + run.stderr);
   }
 });
+
+test("Ajustes são paginados, com validação do deslocamento", async () => {
+  const {env, calls} = makeEnv();
+  const res = await adjustmentsApi(request("/api/ajustes?offset=100", "GET"), env, url("/api/ajustes?offset=100"));
+  assert.equal(res.status, 200);
+  assert.ok(calls.some(x => x.sql.includes("LIMIT 101 OFFSET ?") && x.params[0] === 100));
+  assert.equal((await adjustmentsApi(request("/api/ajustes?offset=-1", "GET"), env, url("/api/ajustes?offset=-1"))).status, 400);
+});

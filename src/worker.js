@@ -1,6 +1,8 @@
-import { brazilNow, weekday, nextType, validTime, validMonth } from "./logic.js";
+import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "./logic.js";
 import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
 import { adjustmentsApi } from "./adjustments.js";
+import { correctionsApi } from "./corrections.js";
+import { effectiveSchedule } from "./schedule.js";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -43,10 +45,25 @@ async function login(request, env) {
   return json({ ok: true, usuario: env.PONTO_USERNAME }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
+async function scheduleFor(env, date) {
+  const [weekly, config, justification] = await Promise.all([
+    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?")
+      .bind(weekday(date)).first(),
+    env.DB.prepare("SELECT valor FROM config WHERE chave = 'sabado_trabalhado_inicio'").first(),
+    env.DB.prepare("SELECT tipo FROM justificativas WHERE data = ?").bind(date).first()
+  ]);
+  return effectiveSchedule(date, {
+    carga_minutos: weekly?.carga_minutos ?? 0,
+    usa_intervalo: Boolean(weekly?.usa_intervalo),
+    sabado_referencia: config?.valor,
+    justificativa: justification?.tipo
+  });
+}
+
 async function today(env) {
   const now = brazilNow();
   const [schedule, points, day] = await Promise.all([
-    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
+    scheduleFor(env, now.date),
     env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all(),
     env.DB.prepare("SELECT total_trabalhado_minutos, carga_prevista, saldo_minutos, pendencia FROM resumo_diario WHERE data = ?").bind(now.date).first()
   ]);
@@ -55,7 +72,13 @@ async function today(env) {
     date: now.date,
     now: now.time,
     points: rows,
-    next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0),
+    // Em dia de folga, a entrada pode ser iniciada voluntariamente.
+    // Após a entrada, exibir as etapas reais sem impor carga prevista.
+    next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 1),
+    expected_steps: expectedTypes(Boolean(schedule?.usa_intervalo),
+      schedule?.carga_minutos || (rows.length ? 1 : 0)),
+    usa_intervalo: Boolean(schedule?.usa_intervalo),
+    justificativa: schedule?.justificativa || null,
     carga_minutos: schedule?.carga_minutos || 0,
     total_trabalhado_minutos: day?.total_trabalhado_minutos ?? null,
     saldo_minutos: day?.saldo_minutos ?? null,
@@ -71,16 +94,23 @@ async function register(request, env) {
   try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400); }
   const time = body?.horario;
   if (!validTime(time)) return json({ error: "Horário inválido." }, 400);
-
   const now = brazilNow();
+  // A data e o tipo precisam corresponder ao que a pessoa viu na tela.
+  // Clientes antigos sem esses campos falham de forma segura, sem gravar um tipo inesperado.
+  if (body?.data !== now.date) return json({ error: "O dia mudou. Atualize os registros antes de bater o ponto." }, 409);
+  if (!["entrada", "ida_intervalo", "volta_intervalo", "saida"].includes(body?.tipo))
+    return json({ error: "Atualize o aplicativo antes de registrar um novo ponto." }, 409);
 
   const [schedule, result] = await Promise.all([
-    env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?").bind(weekday(now.date)).first(),
+    scheduleFor(env, now.date),
     env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all()
   ]);
   const rows = result.results || [];
-  const type = nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 0);
-  if (!type) return json({ error: "Jornada completa, dia de folga ou batidas inconsistentes." }, 409);
+  if (!schedule?.carga_minutos && !rows.length && body?.trabalho_em_folga !== true)
+    return json({ error: "Confirme explicitamente o trabalho neste dia de folga." }, 409);
+  const type = nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 1);
+  if (!type) return json({ error: "Jornada completa ou batidas inconsistentes." }, 409);
+  if (body.tipo !== type) return json({ error: "Os registros mudaram. Atualize a tela e confirme a próxima batida." }, 409);
   if (rows.length && time <= rows[rows.length - 1].horario) {
     return json({ error: "Horário deve ser posterior à batida anterior." }, 400);
   }
@@ -145,6 +175,8 @@ export default {
       if (url.pathname === "/api/pontos" && request.method === "POST") return await register(request, env);
       if (url.pathname === "/api/historico" && request.method === "GET") return await history(request, env);
       if (url.pathname === "/api/saldo" && request.method === "GET") return await balance(env);
+      const correctionResponse = await correctionsApi(request, env, url);
+      if (correctionResponse) return correctionResponse;
       const adjustmentResponse = await adjustmentsApi(request, env, url);
       if (adjustmentResponse) return adjustmentResponse;
       return json({ error: "Rota não encontrada." }, 404);

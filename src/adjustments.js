@@ -11,10 +11,14 @@ export async function adjustmentsApi(request, env, url) {
   if (id !== null && !Number.isSafeInteger(id)) return json({ error: "ID inválido." }, 400);
 
   if (request.method === "GET" && id === null) {
+    const offset = Number(url.searchParams.get("offset") || 0);
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > 1000000)
+      return json({ error: "Página inválida." }, 400);
     const rows = await env.DB.prepare(
-      "SELECT id, data, minutos, motivo, criado_em FROM ajustes_banco ORDER BY data DESC, id DESC LIMIT 100"
-    ).all();
-    return json({ ajustes: rows.results || [] });
+      "SELECT id, data, minutos, motivo, criado_em FROM ajustes_banco ORDER BY data DESC, id DESC LIMIT 101 OFFSET ?"
+    ).bind(offset).all();
+    const page = rows.results || [];
+    return json({ ajustes: page.slice(0, 100), proximo_offset: page.length > 100 ? offset + 100 : null });
   }
   if (request.method === "DELETE" && id !== null) {
     const result = await env.DB.prepare("DELETE FROM ajustes_banco WHERE id = ?").bind(id).run();

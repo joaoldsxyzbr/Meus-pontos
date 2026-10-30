@@ -7,7 +7,10 @@ function decodeBase64(value) {
   if (!/^[a-zA-Z0-9_-]+$/.test(value) || value.length > 2048) return null;
   try {
     const raw = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-    return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+    const decoded = Uint8Array.from(raw, (character) => character.charCodeAt(0));
+    // Base64url não canônico pode ter caracteres finais diferentes para os mesmos bytes.
+    // Recusar essas variantes também protege a validação de cookies adulterados.
+    return encodeBase64(decoded) === value ? decoded : null;
   } catch {
     return null;
   }

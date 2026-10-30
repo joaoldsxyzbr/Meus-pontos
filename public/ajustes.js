@@ -23,7 +23,7 @@ footer.insertAdjacentHTML("beforebegin", `
   <div id="ledger-list" class="ledger-list" aria-live="polite"><p class="muted">Carregando ajustes…</p></div>
 </section>`);
 
-const ledger = { editId: null, busy: false };
+const ledger = { editId: null, busy: false, items: [], nextOffset: null };
 const duration = (n) => String(Math.floor(Math.abs(n) / 60)).padStart(2, "0") + ":" + String(Math.abs(n) % 60).padStart(2, "0");
 const minutesText = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.floor(Math.abs(n) / 60) + "h" + String(Math.abs(n) % 60).padStart(2, "0");
 const dateNow = () => {
@@ -113,8 +113,28 @@ function render(items) {
   }
 }
 async function loadLedger() {
-  const { ajustes } = await request("/api/ajustes");
-  render(ajustes);
+  const { ajustes, proximo_offset } = await request("/api/ajustes?offset=0");
+  ledger.items = ajustes;
+  ledger.nextOffset = proximo_offset;
+  render(ledger.items);
+  renderMore();
+}
+function renderMore() {
+  $a("ledger-more")?.remove();
+  if (ledger.nextOffset === null) return;
+  const button = makeButton("Carregar mais ajustes", "ledger-outline", async () => {
+    button.disabled = true;
+    try {
+      const { ajustes, proximo_offset } = await request("/api/ajustes?offset=" + ledger.nextOffset);
+      const seen = new Set(ledger.items.map(item => item.id));
+      ledger.items.push(...ajustes.filter(item => !seen.has(item.id)));
+      ledger.nextOffset = proximo_offset;
+      render(ledger.items);
+      renderMore();
+    } catch (error) { button.disabled = false; alertUser(error.message); }
+  });
+  button.id = "ledger-more";
+  $a("ledger-list").insertAdjacentElement("afterend", button);
 }
 async function reloadBalance() {
   const data = await request("/api/saldo");
@@ -170,7 +190,7 @@ async function removeItem(item) {
 $a("ledger-new").addEventListener("click", () => openForm());
 $a("ledger-cancel").addEventListener("click", closeForm);
 $a("ledger-form").addEventListener("submit", save);
-document.querySelector('[data-tab="saldo"]').addEventListener("click", () => {
+document.addEventListener("meus-pontos:saldo-atualizado", () => {
   loadLedger().catch(error => alertUser(error.message));
 });
 $a("ledger-date").max = dateNow();

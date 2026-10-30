@@ -4,21 +4,22 @@ PWA simples de controle pessoal de ponto, em **JavaScript puro, HTML e CSS**, se
 
 ## Funcionalidades
 
-- **Ponto:** horário de Brasília, ajuste de 1 minuto, batidas do dia e registro da próxima batida.
-- **Histórico:** jornadas por mês, horários, faltas e pendências.
-- **Banco de horas:** saldo consolidado, ajustes, faltas e pendências.
+- **Ponto:** horário de Brasília, ajuste de 1 minuto, confirmação de batidas futuras, verificação de data e tipo no servidor e atualização na virada do dia.
+- **Histórico:** jornadas por mês, horários, faltas e pendências; correção manual de horário ou exclusão da última batida, sempre com motivo auditado.
+- **Banco de horas:** saldo consolidado, ajustes, faltas e pendências; ajustes paginados sem corte na centésima operação.
 - **Login:** apenas usuário e senha; botão de sair. A sessão autenticada é mantida por até sete dias em cookie seguro, sem guardar senha ou token em localStorage.
 
-O aplicativo usa o D1 `meus-pontos` já existente. **Nenhuma migração é necessária**: as tabelas de ponto não são recriadas nem modificadas pela implantação.
+O aplicativo usa o D1 `meus-pontos` existente. **Esta atualização exige a migração SQL** `migrations/0001_integridade_e_auditoria.sql` antes da publicação do novo Worker. A migração adiciona auditoria de correções e recria as views de saldos. Não aplicá-la ao D1 original sem backup, comparação em cópia e autorização específica; veja [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
 
 ## Estrutura
 
 - `public/` — interface, manifesto e service worker.
 - `src/worker.js` — API e acesso ao D1.
 - `src/auth.js` — autenticação nativa PBKDF2 + HMAC.
-- `src/logic.js` — jornada e horários de Brasília.
+- `src/logic.js` e `src/schedule.js` — sequência das batidas, escala e horários de Brasília.
+- `src/corrections.js` — retificação de batidas e trilha de auditoria transacional.
 - `scripts/criar-login.mjs` — gera credenciais fortes e valores dos secrets.
-- `tests/` — testes nativos com Node.
+- `tests/` — testes nativos com Node e SQLite/Python; `scripts/browser-smoke.mjs` valida fluxos com Chrome headless.
 - `wrangler.jsonc` — Cloudflare Worker, D1 e rate limit de login.
 
 ## Configurar o primeiro usuário
@@ -64,9 +65,18 @@ Para trocar a senha, gere novas credenciais com o script e atualize **os três s
 npm test
 ```
 
-Os testes usam somente recursos nativos do Node.js. O GitHub Actions valida testes e sintaxe.
+Os testes JavaScript usam apenas recursos nativos do Node.js. O GitHub Actions também executa testes SQL SQLite com Python e smoke test Chrome headless com API simulada.
 
 ## Observações
 
-- O primeiro usuário **ainda precisa ser configurado e o Worker publicado** para o login funcionar em produção.
-- As jornadas continuam usando `jornada_padrao`, `resumo_diario` e `saldo_total` do D1; a regra de sábado intercalado ainda não foi implementada no banco.
+- A implantação e os secrets do Worker já existem na Cloudflare conectada; isso não comprova que o login real esteja funcionando. Não reconfigure credenciais nem publique sem validar o ambiente.
+- Jornadas usam `jornada_padrao`, `resumo_diario` e `saldo_total`. A migração prepara sábados alternados apenas quando uma data real confirmada é cadastrada em `config.sabado_trabalhado_inicio`.
+- A atualização das views pode alterar saldos de jornadas incompletas, dias correntes e dias com justificativa; conferir diferenças antes de aplicar.
+## Regras para correções e publicação
+
+- O formulário de correções aceita editar **somente o horário** preservando a ordem, ou excluir **a última** batida da data. Alterações exigem motivo e são salvas na tabela `auditoria_pontos`. Mudanças arbitrárias de tipo ou sequência precisam de revisão assistida, não de alteração silenciosa.
+- O navegador envia `data`, `tipo` e `horario`; o Worker rejeita estado obsoleto com HTTP 409. Aparelhos com cache antigo precisam atualizar o PWA.
+- O D1 e as views são a fonte oficial do saldo. Nenhuma alteração estrutural deve ser implantada sem validação prévia: [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
+
+- Em dia de folga ou feriado, a pessoa pode optar por registrar trabalho mediante confirmação explícita; o saldo é calculado com carga prevista zero quando a regra justificar a folga.
+- Evidências de backup persistente no D1 e teste de migração isolada: [VALIDACAO-2026-10-30.md](VALIDACAO-2026-10-30.md).

@@ -17,9 +17,14 @@ export function weekday(date) {
   return new Date(date + "T12:00:00Z").getUTCDay();
 }
 
+export function expectedTypes(usesInterval, loadMinutes) {
+  if (!Number.isFinite(Number(loadMinutes)) || Number(loadMinutes) <= 0) return [];
+  return usesInterval ? ["entrada", "ida_intervalo", "volta_intervalo", "saida"] : ["entrada", "saida"];
+}
+
 export function nextType(rows, usesInterval, loadMinutes) {
-  if (!loadMinutes) return null;
-  const expected = usesInterval ? ["entrada", "ida_intervalo", "volta_intervalo", "saida"] : ["entrada", "saida"];
+  const expected = expectedTypes(usesInterval, loadMinutes);
+  if (!expected.length) return null;
   if (rows.length > expected.length) return null;
   if (rows.some((row, i) => row.tipo !== expected[i])) return null;
   return expected[rows.length] || null;
