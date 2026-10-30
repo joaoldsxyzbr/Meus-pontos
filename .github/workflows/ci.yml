@@ -18,6 +18,10 @@ jobs:
           node-version: '22'
       - name: Instalar dependências da versão fixa
         run: npm ci --ignore-scripts
+      - name: Conferir componentes Svelte e TypeScript
+        run: npm run check:frontend
+      - name: Construir piloto Svelte sem tocar nos assets de produção
+        run: npm run build:frontend
       - name: Verificar contratos TypeScript
         run: npm run typecheck
       - name: Testar JavaScript existente
@@ -45,3 +49,9 @@ jobs:
           node-version: '22'
       - name: Smoke test PWA em Chrome desktop/mobile (API simulada)
         run: node --test scripts/browser-smoke.mjs
+      - name: Preparar dependências e piloto Svelte no runner de navegador
+        run: |
+          npm ci --ignore-scripts
+          npm run build:frontend
+      - name: Smoke test do piloto Svelte em Chrome desktop/mobile
+        run: node --test scripts/browser-svelte-smoke.mjs
