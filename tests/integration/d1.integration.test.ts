@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { env } from "cloudflare:test";
+import { applyD1Migrations, env } from "cloudflare:test";
 import schema from "../fixtures/d1-base.sql?raw";
-import migration from "../../migrations/0001_integridade_e_auditoria.sql?raw";
 import { brazilNow } from "../../src/logic.js";
 
 /**
@@ -22,8 +21,12 @@ const wednesday = iso(utcDay(previousMonday) + 2 * 86400000);
 
 describe("D1 local e migração real do projeto", () => {
   beforeAll(async () => {
-    await db.exec(executableSql(schema));
-    await db.exec(executableSql(migration));
+    // D1.exec divide entradas por linhas; preparar DDL individualmente é seguro.
+    for (const statement of executableSql(schema).split(";").map(sql => sql.trim()).filter(Boolean)) {
+      await db.prepare(statement).run();
+    }
+    // O helper oficial interpreta e registra as migrações em D1 local.
+    await applyD1Migrations(db, (env as typeof env & { TEST_MIGRATIONS: Parameters<typeof applyD1Migrations>[1] }).TEST_MIGRATIONS);
     const start = iso(utcDay(today) - 30 * 86400000);
     await db.prepare("INSERT INTO config(chave,valor) VALUES ('inicio_contagem', ?)").bind(start).run();
     for (let weekday = 0; weekday < 7; weekday++) {
