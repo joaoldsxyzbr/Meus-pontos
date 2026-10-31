@@ -24,7 +24,7 @@ Este documento registra o procedimento planejado antes do merge. Em 30/10/2026, 
 ## Verificações automáticas
 - `npm test` — APIs, autenticação, validação de ponto, correções e escala.
 - `python3 -m unittest discover -s tests -p 'test_*.py'` — SQL original comparado ao migrado em SQLite in-memory, sem dados pessoais.
-- `node --test scripts/browser-smoke.mjs` — Chrome headless com API simulada e navegação desktop/mobile (CI).
+- `node --test scripts/browser-svelte-smoke.mjs` — Chrome headless com navegação desktop/mobile sobre o pacote Svelte (CI; o antigo `browser-smoke.mjs` da interface legada foi removido).
 - CI aprovado não substitui testes no D1 copiado, credenciais reais e dispositivo físico.
 
 ## Política de segurança

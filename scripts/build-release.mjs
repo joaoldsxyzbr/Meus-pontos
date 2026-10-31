@@ -31,16 +31,4 @@ await writeFile(htmlPath, html
     "Registre seus pontos e acompanhe seu banco de horas.")
 );
 
-/**
- * Preservar assets da versão antiga durante o primeiro rollout.
- * Um navegador já aberto pode ainda solicitá-los após a atualização.
- * Não entram na lista de precache do novo SW.
- */
-const legacy = [
-  "app.js", "ajustes.js", "correcoes.js",
-  "styles.css", "ajustes.css", "correcoes.css"
-];
-for (const name of legacy) {
-  await cp(path.join(root, "public", name), path.join(release, name));
-}
 console.log("Pacote Svelte de publicação preparado (não implantado).");
