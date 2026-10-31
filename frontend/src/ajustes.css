@@ -1,0 +1,29 @@
+/* Ajustes do banco de horas */
+.ledger-card {padding:20px}
+.ledger-heading {gap:14px;align-items:flex-start}
+.ledger-heading>div {min-width:0;flex:1}
+.ledger-heading .muted {margin-top:6px}
+.ledger-outline,.ledger-link {color:var(--text);background:rgba(255,255,255,.035);border:1px solid var(--card-border-strong);cursor:pointer;font-weight:650}
+.ledger-outline {padding:11px 14px;border-radius:13px;white-space:nowrap}
+.ledger-outline:hover,.ledger-link:hover {background:var(--accent-soft);border-color:var(--accent)}
+.ledger-outline:focus-visible,.ledger-link:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+.ledger-form {background:rgba(0,0,0,.13);border:1px solid var(--card-border);border-radius:18px;padding:18px;margin-bottom:18px}
+.ledger-form h3 {font-size:1rem;margin:0 0 16px}
+.ledger-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ledger-grid label {min-width:0;display:grid;gap:7px;font-size:.88rem;font-weight:650;color:var(--text-soft)}
+.ledger-grid .ledger-wide {grid-column:1/-1}
+.ledger-grid input,.ledger-grid select {min-width:0;width:100%;height:48px;padding:0 13px;background:var(--surface-3);border:1px solid var(--card-border-strong);color:var(--text);border-radius:12px;outline:none}
+.ledger-grid input:focus,.ledger-grid select:focus {border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ledger-form-actions {display:flex;align-items:stretch;gap:10px;margin-top:18px}
+.ledger-form-actions .primary {width:auto;flex:1;min-height:48px}
+.ledger-list {display:grid;gap:10px}
+.ledger-item {display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px;border:1px solid var(--card-border);border-radius:14px;background:rgba(255,255,255,.025)}
+.ledger-info {display:grid;gap:5px;min-width:0;overflow-wrap:anywhere}
+.ledger-info small {color:var(--text-muted)}
+.ledger-info strong {font-size:.91rem;font-weight:650}
+.ledger-side {display:grid;justify-items:end;gap:8px;flex-shrink:0}
+.ledger-side>strong {font-variant-numeric:tabular-nums;font-size:1.08rem}
+.ledger-actions {display:flex;gap:6px}
+.ledger-link {padding:7px 9px;font-size:.82rem;border-radius:9px}
+.ledger-danger {color:var(--danger)}
+@media(max-width:540px) {.ledger-card{padding:16px}.ledger-heading{flex-wrap:wrap}.ledger-form{padding:14px}.ledger-grid{grid-template-columns:1fr}.ledger-grid .ledger-wide{grid-column:auto}.ledger-form-actions{flex-wrap:wrap}.ledger-form-actions .primary{min-width:100%}.ledger-form-actions .ledger-outline{flex:1}}

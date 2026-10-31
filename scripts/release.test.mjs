@@ -28,11 +28,12 @@ test("Wrangler de produção publica Svelte automaticamente sem alterar D1, logi
   assert.equal(cfg.migrations, undefined);
 });
 
-test("release Svelte contém manifest, novo SW e arquivos legados só para transição", async () => {
+test("release Svelte contém manifest e novo SW, sem arquivos legados", async () => {
   const html = await load("index.html");
   const sw = await load("sw.js");
   const manifest = JSON.parse(await load("manifest.webmanifest"));
   const assets = await readdir("dist/release/assets");
+  const released = await readdir("dist/release");
   assert.match(html, /<title>Meus Pontos<\/title>/);
   assert.doesNotMatch(html, /Svelte 5 \(piloto\)/);
   assert.match(html, /rel="manifest"/);
@@ -47,9 +48,7 @@ test("release Svelte contém manifest, novo SW e arquivos legados só para trans
   assert.doesNotMatch(sw, /SHELL = .*\/api\//);
   for (const name of ["app.js","ajustes.js","correcoes.js",
       "styles.css","ajustes.css","correcoes.css"]) {
-    const legacy = await load(name);
-    assert.ok(legacy.length > 100, name);
-    assert.ok(!sw.includes('"/' + name + '"'), "Não pre-cachear " + name);
+    assert.ok(!released.includes(name), "Legado removido: " + name);
   }
   assert.ok(assets.every(s => !s.endsWith(".map")));
 });
@@ -67,10 +66,9 @@ test("wrapper conserva a resposta da API sem alterar dados e status", async () =
   assert.deepEqual(await response.json(), { error: "Login ainda não configurado no Worker." });
 });
 
-test("wrapper impede cache de HTML/SW, mantém legacy no-store e asset imutável", async () => {
+test("wrapper impede cache de HTML/SW e deixa asset imutável", async () => {
   const env = { ASSETS: { fetch: async () => new Response("ok") } };
-  for (const name of ["/","/index.html","/sw.js","/manifest.webmanifest",
-    "/app.js","/ajustes.js","/correcoes.js","/styles.css"]) {
+  for (const name of ["/","/index.html","/sw.js","/manifest.webmanifest"]) {
     const res = await releaseWorker.fetch(new Request(
       "https://meus-pontos.example.test" + name), env, {});
     assert.equal(res.status, 200);
