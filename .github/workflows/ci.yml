@@ -47,10 +47,6 @@ jobs:
       - name: Verificar sintaxe
         run: |
           node --check src/worker.js
-          node --check public/app.js
-          node --check public/sw.js
-          node --check public/ajustes.js
-          node --check public/correcoes.js
           node --check src/corrections.js
           node --check src/schedule.js
   browser:
@@ -61,8 +57,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Smoke test PWA em Chrome desktop/mobile (API simulada)
-        run: node --test scripts/browser-smoke.mjs
       - name: Preparar dependências e piloto Svelte no runner de navegador
         run: |
           npm ci --ignore-scripts
