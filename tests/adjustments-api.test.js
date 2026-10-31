@@ -49,7 +49,7 @@ test("API bloqueia ajuste inválido", async () => {
 });
 
 test("Scripts adicionais passam na verificação de sintaxe nativa", () => {
-  for (const path of ["public/ajustes.js", "src/adjustments.js"]) {
+  for (const path of ["src/adjustments.js"]) {
     const run = spawnSync(process.execPath, ["--check", path], { encoding: "utf8" });
     assert.equal(run.status, 0, path + ": " + run.stderr);
   }

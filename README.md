@@ -1,6 +1,6 @@
 # Meus Pontos
 
-PWA pessoal de registro de ponto com **Svelte 5, TypeScript e Vite**. API em Cloudflare Workers/Hono e banco D1. A interface anterior permanece em `public/` para rollback.
+PWA pessoal de registro de ponto com **Svelte 5, TypeScript e Vite**. API em Cloudflare Workers/Hono e banco D1.
 
 ## Funcionalidades
 
@@ -14,15 +14,15 @@ O aplicativo usa o D1 `meus-pontos` existente. A migração `migrations/0001_int
 ## Estrutura
 
 - `frontend/` — interface Svelte 5 e componentes.
-- `public/` — interface legada preservada para reversão.
+- `public/` — ícone e manifest da PWA, copiados para o pacote de homologação.
 - `src/worker.js` — API e acesso ao D1.
 - `src/auth.js` — autenticação nativa PBKDF2 + HMAC.
 - `src/logic.js` e `src/schedule.js` — sequência das batidas, escala e horários de Brasília.
 - `src/corrections.js` — retificação de batidas e trilha de auditoria transacional.
 - `scripts/criar-login.mjs` — gera credenciais fortes e valores dos secrets.
-- `tests/` — testes nativos com Node e SQLite/Python; `scripts/browser-smoke.mjs` valida fluxos com Chrome headless.
+- `tests/` — testes nativos com Node e SQLite/Python; `scripts/browser-svelte-smoke.mjs` valida fluxos com Chrome headless.
 - `wrangler.jsonc` — Worker, D1, rate limit e build de produção via Svelte.
-- `scripts/build-release.mjs` — prepara a nova PWA e preserva assets legados na primeira troca.
+- `scripts/build-release.mjs` — prepara a PWA de publicação a partir do pacote de homologação validado.
 
 ## Configurar o primeiro usuário
 
