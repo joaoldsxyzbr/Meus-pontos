@@ -4,16 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm test && npm run test:workers",
     "test:workers": "vitest run --config vitest.config.ts",
     "check:frontend": "svelte-check --tsconfig frontend/tsconfig.json",
     "build:frontend": "vite build --config vite.frontend.config.ts",
     "build:staging": "node scripts/build-staging.mjs",
-    "test:staging": "node --test scripts/staging.test.mjs",
+    "test:staging": "node --experimental-strip-types --test scripts/staging.test.mjs",
     "build:release": "node scripts/build-release.mjs",
-    "test:release": "node --test scripts/release.test.mjs"
+    "test:release": "node --experimental-strip-types --test scripts/release.test.mjs"
   },
   "devDependencies": {
     "typescript": "^6.0.0",
