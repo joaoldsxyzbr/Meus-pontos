@@ -1,8 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
-import worker from "../../src/worker.js";
-import { brazilNow } from "../../src/logic.js";
-import { initializeLocalD1 } from "./helpers/local-d1.js";
+import worker from "../../src/worker.ts";
+import { brazilNow } from "../../src/logic.ts";
+import { initializeLocalD1 } from "./helpers/local-d1.ts";
 
 /**
  * HTTP Request/Response do Worker verdadeiro, executado dentro de workerd.
