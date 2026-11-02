@@ -31,7 +31,7 @@ test("build gera arquivos versionados, manifest e SW sem scripts antigos", async
   assert.ok(assets.some(name => name.endsWith(".css")));
   assert.ok(assets.some(name => name.endsWith(".js")));
   assert.equal(manifest.scope, "/");
-  assert.match(sw, /meus-pontos-svelte-[a-f0-9]{16}/);
+  assert.match(sw, /meus-pontos-pwa-[a-f0-9]{16}/);
   assert.doesNotMatch(html, /\/app\.js|\/ajustes\.js|\/correcoes\.js/);
   assert.ok(assets.every(name => !name.endsWith(".map")));
 });

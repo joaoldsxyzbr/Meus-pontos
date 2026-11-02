@@ -7,7 +7,7 @@ import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 
 /** Smoke de frontend isolado, com API simulada — nunca faz chamadas externas. */
-const root = path.resolve(process.env.PILOT_ROOT || "dist/svelte-pilot");
+const root = path.resolve(process.env.PILOT_ROOT || "dist/frontend");
 const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
   ".svg": "image/svg+xml" };
 const script = String.raw`
@@ -20,9 +20,16 @@ const script = String.raw`
     }
     throw new Error("Não concluiu: " + stage);
   };
+  const setInput = (element, value) => {
+    const proto = element instanceof HTMLSelectElement ? HTMLSelectElement.prototype
+      : element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype
+      : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, "value").set.call(element, value);
+    element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+  };
   const report = (ok, error = "") => {
     const result = document.createElement("output");
-    result.id = "__svelte_smoke";
+    result.id = "__pwa_smoke";
     result.textContent = JSON.stringify({
       ok, error, stage, width: innerWidth,
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 3,
@@ -34,10 +41,8 @@ const script = String.raw`
   };
   try {
     await wait(() => document.querySelector("#login-user")?.disabled === false);
-    document.querySelector("#login-user").value = "teste-ui";
-    document.querySelector("#login-user").dispatchEvent(new Event("input", { bubbles: true }));
-    document.querySelector("#login-password").value = "senha-ficticia";
-    document.querySelector("#login-password").dispatchEvent(new Event("input", { bubbles: true }));
+    setInput(document.querySelector("#login-user"), "teste-ui");
+    setInput(document.querySelector("#login-password"), "senha-ficticia");
     document.querySelector("#gate form button[type=submit]").click();
     stage = "ponto";
     await wait(() => document.querySelector("#gate")?.hidden === true);
@@ -54,12 +59,8 @@ const script = String.raw`
     await wait(() => document.querySelector("#correction-list button"));
     document.querySelector("#correction-list button").click();
     await wait(() => document.querySelector("#correction-form"));
-    const edited = document.querySelector("#correction-time");
-    edited.value = "08:30";
-    edited.dispatchEvent(new Event("input", { bubbles: true }));
-    const correctionReason = document.querySelector("#correction-reason");
-    correctionReason.value = "Teste sintético de correção";
-    correctionReason.dispatchEvent(new Event("input", { bubbles: true }));
+    setInput(document.querySelector("#correction-time"), "08:30");
+    setInput(document.querySelector("#correction-reason"), "Teste sintético de correção");
     document.querySelector("#correction-form").requestSubmit();
     await wait(() => document.querySelector(".correction-card [role=\"status\"]")?.textContent.includes("Correção salva."));
     stage = "saldo";
@@ -70,24 +71,16 @@ const script = String.raw`
       !document.querySelector("#ledger-list").textContent.includes("Carregando"));
     document.querySelector(".ledger-heading button").click();
     await wait(() => document.querySelector("#ledger-form"));
-    const durationInput = document.querySelector('#ledger-form input[placeholder="01:30"]');
-    durationInput.value = "01:30";
-    durationInput.dispatchEvent(new Event("input", { bubbles: true }));
-    const adjustmentReason = document.querySelector('#ledger-form input[placeholder^="Ex.:"]');
-    adjustmentReason.value = "Crédito sintético de teste";
-    adjustmentReason.dispatchEvent(new Event("input", { bubbles: true }));
+    setInput(document.querySelector('#ledger-form input[placeholder="01:30"]'), "01:30");
+    setInput(document.querySelector('#ledger-form input[placeholder^="Ex.:"]'), "Crédito sintético de teste");
     document.querySelector("#ledger-form").requestSubmit();
     await wait(() => document.querySelectorAll(".ledger-item").length === 1);
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("+1h30"));
     stage = "editar-ajuste";
     document.querySelector(".ledger-item .ledger-link").click();
     await wait(() => document.querySelector("#ledger-form"));
-    const editedDuration = document.querySelector('#ledger-form input[placeholder="01:30"]');
-    editedDuration.value = "00:30";
-    editedDuration.dispatchEvent(new Event("input", { bubbles: true }));
-    const debit = document.querySelector("#ledger-form select");
-    debit.value = "debito";
-    debit.dispatchEvent(new Event("change", { bubbles: true }));
+    setInput(document.querySelector('#ledger-form input[placeholder="01:30"]'), "00:30");
+    setInput(document.querySelector("#ledger-form select"), "debito");
     document.querySelector("#ledger-form").requestSubmit();
     await wait(() => document.querySelector(".ledger-item")?.textContent.includes("−0h30"));
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("−0h30"));
@@ -246,19 +239,19 @@ async function browse(chrome, url, width, temp) {
     child.on("error", reject);
     child.on("exit", code => {
       if (code !== 0) return reject(new Error("Chrome saiu com código " + code + ": " + stderr.slice(-600)));
-      const match = stdout.match(/<output id="__svelte_smoke">([^<]*)<\/output>/);
-      if (!match) return reject(new Error("Svelte não retornou resultado no DOM: " + stdout.slice(-1200)));
+      const match = stdout.match(/<output id="__pwa_smoke">([^<]*)<\/output>/);
+      if (!match) return reject(new Error("A interface não retornou resultado no DOM: " + stdout.slice(-1200)));
       resolve(JSON.parse(match[1]));
     });
   });
 }
 
-test("Svelte 5 renderiza, autentica e navega em desktop/mobile sem API real", { timeout: 120000 }, async () => {
+test("A interface React renderiza, autentica e navega em desktop/mobile sem API real", { timeout: 120000 }, async () => {
   const { server, port, requests } = await serve();
   try {
     const chrome = chromeBinary();
     for (const width of [1280, 390]) {
-      const temp = await fs.mkdtemp(path.join(os.tmpdir(), "meus-pontos-svelte-"));
+      const temp = await fs.mkdtemp(path.join(os.tmpdir(), "meus-pontos-smoke-"));
       try {
         const result = await browse(chrome, "http://127.0.0.1:" + port + "/", width, temp);
         assert.equal(result.ok, true, JSON.stringify(result));

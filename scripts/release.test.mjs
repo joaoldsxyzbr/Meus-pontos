@@ -5,7 +5,7 @@ import releaseWorker from "../src/release-worker.ts";
 
 const load = async p => readFile("dist/release/" + p, "utf8");
 
-test("Wrangler de produção publica Svelte automaticamente sem alterar D1, login ou rotas", async () => {
+test("Wrangler de produção publica automaticamente sem alterar D1, login ou rotas", async () => {
   const cfg = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
   assert.equal(cfg.name, "meus-pontos");
   assert.equal(cfg.main, "src/release-worker.ts");
@@ -28,7 +28,7 @@ test("Wrangler de produção publica Svelte automaticamente sem alterar D1, logi
   assert.equal(cfg.migrations, undefined);
 });
 
-test("release Svelte contém manifest e novo SW, sem arquivos legados", async () => {
+test("release contém manifest e novo SW, sem arquivos legados", async () => {
   const html = await load("index.html");
   const sw = await load("sw.js");
   const manifest = JSON.parse(await load("manifest.webmanifest"));
@@ -43,7 +43,7 @@ test("release Svelte contém manifest e novo SW, sem arquivos legados", async ()
   assert.equal(manifest.id, "/");
   assert.equal(manifest.start_url, "/");
   assert.equal(manifest.scope, "/");
-  assert.match(sw, /meus-pontos-svelte-[a-f0-9]{16}/);
+  assert.match(sw, /meus-pontos-pwa-[a-f0-9]{16}/);
   assert.match(sw, /meus-pontos-shell-/);
   assert.doesNotMatch(sw, /SHELL = .*\/api\//);
   for (const name of ["app.js","ajustes.js","correcoes.js",
