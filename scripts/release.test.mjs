@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import releaseWorker from "../src/release-worker.js";
+import releaseWorker from "../src/release-worker.ts";
 
 const load = async p => readFile("dist/release/" + p, "utf8");
 
 test("Wrangler de produção publica Svelte automaticamente sem alterar D1, login ou rotas", async () => {
   const cfg = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
   assert.equal(cfg.name, "meus-pontos");
-  assert.equal(cfg.main, "src/release-worker.js");
+  assert.equal(cfg.main, "src/release-worker.ts");
   assert.equal(cfg.compatibility_date, "2026-10-20");
   assert.equal(cfg.assets.directory, "./dist/release");
   assert.equal(cfg.assets.binding, "ASSETS");
@@ -86,7 +86,7 @@ test("o deploy automático usa o Wrangler principal e preserva a API", async () 
   const build = await readFile("scripts/build-release.mjs", "utf8");
   const main = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
   assert.match(ci, /wrangler deploy --config wrangler\.jsonc --dry-run/);
-  assert.match(ci, /node --test scripts\/staging-http\.test\.mjs/);
+  assert.match(ci, /node --experimental-strip-types --test scripts\/staging-http\.test\.mjs/);
   assert.match(ci, /E2E_RELEASE_LOCAL=1/);
   assert.match(build, /scripts\/build-staging\.mjs/);
   assert.doesNotMatch(build, /wrangler d1/);

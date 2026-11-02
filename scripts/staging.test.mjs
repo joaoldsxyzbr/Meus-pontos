@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import vm from "node:vm";
-import stagingWorker from "../src/staging-worker.js";
+import stagingWorker from "../src/staging-worker.ts";
 
 const source = async (name) => readFile("dist/staging/" + name, "utf8");
 
