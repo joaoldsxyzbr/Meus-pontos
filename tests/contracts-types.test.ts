@@ -1,7 +1,7 @@
 import type {
   PointType, TodayResponse, RegisterPointRequest, CorrectionRequest,
   BalanceResponse, AdjustmentsPage, HistoryDay
-} from "../src/shared/contracts.js";
+} from "../src/shared/contracts.ts";
 
 // Estes exemplos são verificados pelo compilador. Não executam requisições.
 const today = {
