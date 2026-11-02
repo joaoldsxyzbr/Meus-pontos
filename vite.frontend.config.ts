@@ -1,13 +1,13 @@
 import { defineConfig } from "vite";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 export default defineConfig({
   root: "frontend",
-  plugins: [svelte()],
+  // JSX transformado pelo esbuild embutido no Vite (runtime automático do React 19).
+  esbuild: { jsx: "automatic" },
   publicDir: false,
   base: "./",
   build: {
-    outDir: "../dist/svelte-pilot",
+    outDir: "../dist/frontend",
     emptyOutDir: true
   },
   server: { host: "127.0.0.1" }
