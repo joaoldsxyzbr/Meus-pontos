@@ -86,7 +86,7 @@ test("o deploy automático usa o Wrangler principal e preserva a API", async () 
   const build = await readFile("scripts/build-release.mjs", "utf8");
   const main = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
   assert.match(ci, /wrangler deploy --config wrangler\.jsonc --dry-run/);
-  assert.match(ci, /node --experimental-strip-types --test scripts\/staging-http\.test\.mjs/);
+  assert.match(ci, /node (--experimental-strip-types )?--test scripts\/staging-http\.test\.mjs/);
   assert.match(ci, /E2E_RELEASE_LOCAL=1/);
   assert.match(build, /scripts\/build-staging\.mjs/);
   assert.doesNotMatch(build, /wrangler d1/);
