@@ -5,7 +5,8 @@ Workers/Hono e banco D1.
 
 ## Funcionalidades
 
-- **Ponto:** horário de Brasília, ajuste de 1 minuto, confirmação de batidas futuras,
+- **Ponto:** horário de Brasília, ajuste de 1 minuto ou digitação direta do horário
+  (toque no relógio), confirmação de batidas futuras,
   verificação de data e tipo no servidor e atualização na virada do dia.
 - **Histórico:** jornadas por mês, horários, faltas e pendências; correção manual de horário
   ou exclusão da última batida, sempre com motivo auditado.

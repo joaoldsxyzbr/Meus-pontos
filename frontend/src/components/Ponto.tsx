@@ -12,6 +12,7 @@ interface Props {
 
 export default function Ponto({ day, loading, register, refresh, notify }: Props) {
   const [chosen, setChosen] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => brazilTime());
   const [busy, setBusy] = useState(false);
 
@@ -50,6 +51,18 @@ export default function Ponto({ day, loading, register, refresh, notify }: Props
 
   function adjust(delta: number) {
     setChosen(clockTime(minuteValue(timeShown) + delta));
+  }
+
+  function openEditor() {
+    setDraft(timeShown);
+  }
+
+  function commitDraft() {
+    const value = draft;
+    setDraft(null);
+    if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value)) {
+      setChosen(clockTime(minuteValue(value)));
+    }
   }
 
   async function submit() {
@@ -114,9 +127,43 @@ export default function Ponto({ day, loading, register, refresh, notify }: Props
           >
             −
           </button>
-          <time className="big-time" id="chosen-time">
-            {timeShown}
-          </time>
+          {draft === null ? (
+            <time
+              className="big-time"
+              id="chosen-time"
+              role="button"
+              tabIndex={0}
+              title="Toque para digitar o horário"
+              aria-label={"Horário do registro: " + timeShown + ". Toque para digitar outro horário."}
+              onClick={openEditor}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openEditor();
+                }
+              }}
+            >
+              {timeShown}
+            </time>
+          ) : (
+            <input
+              className="big-time"
+              id="chosen-time"
+              type="time"
+              autoFocus
+              value={draft}
+              aria-label="Digitar horário do registro"
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={commitDraft}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitDraft();
+                }
+                if (event.key === "Escape") setDraft(null);
+              }}
+            />
+          )}
           <button
             className="adjust"
             type="button"

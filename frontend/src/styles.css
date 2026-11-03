@@ -311,6 +311,32 @@ select:focus-visible {
   text-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
+.time-control time.big-time {
+  cursor: pointer;
+}
+
+.time-control time.big-time:hover,
+.time-control time.big-time:focus-visible {
+  color: #b8fff1;
+}
+
+.time-control time.big-time:focus-visible {
+  outline: 2px solid rgba(133, 241, 223, 0.55);
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.time-control input.big-time {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  color-scheme: dark;
+  cursor: text;
+}
+
 .text-button {
   display: block;
   width: fit-content;
