@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CorrectionRequest, StoredPoint } from "../../../src/shared/contracts.ts";
 import { api } from "../lib/api.ts";
+import { okSchema, storedPointsSchema } from "../lib/schemas.ts";
 import { brazilDate, kinds } from "../lib/time.ts";
 
 interface Props {
@@ -33,7 +34,8 @@ export default function Correcoes({ changed, notify, onError }: Props) {
     setMessage("");
     try {
       const response = await api<{ data: string; pontos: StoredPoint[] }>(
-        `/api/pontos/consultar?data=${encodeURIComponent(selectedDate)}`
+        `/api/pontos/consultar?data=${encodeURIComponent(selectedDate)}`,
+        { schema: storedPointsSchema }
       );
       if (current === sequence.current) setConsulted(response.pontos);
     } catch (error) {
@@ -91,7 +93,7 @@ export default function Correcoes({ changed, notify, onError }: Props) {
 
     setBusy(true);
     try {
-      await api<{ ok: true }>("/api/pontos/corrigir", { method: "POST", body: payload });
+      await api<{ ok: true }>("/api/pontos/corrigir", { method: "POST", body: payload, schema: okSchema });
       setMessage("Correção registrada e auditada.");
       notify("Correção salva.");
       changed();

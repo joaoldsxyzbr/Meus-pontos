@@ -1,4 +1,4 @@
-import { brazilNow, validTime } from "./logic.ts";
+import { brazilNow, isValidSequence, validTime } from "./logic.ts";
 import type { PointType } from "./shared/contracts.ts";
 import type { Env } from "./env.ts";
 
@@ -34,17 +34,6 @@ interface StoredRow {
   data: string;
   tipo: PointType;
   horario: string;
-}
-
-function validSequence(rows: readonly StoredRow[]): boolean {
-  const types = rows.map((row) => row.tipo);
-  const long: string[] = ["entrada", "ida_intervalo", "volta_intervalo", "saida"];
-  const short: string[] = ["entrada", "saida"];
-  return (
-    rows.every((p, i) => i === 0 || rows[i - 1]!.horario < p.horario) &&
-    (types.every((type, i) => long[i] === type) ||
-      types.every((type, i) => short[i] === type))
-  );
 }
 
 interface CorrectionInput {
@@ -100,7 +89,7 @@ export async function correctionsApi(
   const index = points.findIndex((item) => item.id === input.id);
   if (index < 0 || points[index]!.horario !== input.horario_anterior)
     return reply({ error: "Os dados mudaram. Atualize os registros antes de corrigir." }, 409);
-  if (!validSequence(points))
+  if (!isValidSequence(points))
     return reply({ error: "Registros inconsistentes. É necessária revisão assistida." }, 409);
   const previous = points[index]!;
   if (input.acao === "editar") {

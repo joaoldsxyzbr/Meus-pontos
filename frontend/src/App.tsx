@@ -7,6 +7,7 @@ import type {
   TodayResponse
 } from "../../src/shared/contracts.ts";
 import { HttpError, api } from "./lib/api.ts";
+import { balanceSchema, historySchema, okSchema, registerPointSchema, sessionSchema, todaySchema } from "./lib/schemas.ts";
 import { brazilDate } from "./lib/time.ts";
 import Ponto from "./components/Ponto.tsx";
 import Historico from "./components/Historico.tsx";
@@ -70,17 +71,17 @@ export default function App() {
     try {
       const currentTab = stateRef.current.tab;
       if (currentTab === "ponto") {
-        const result = await api<TodayResponse>("/api/hoje", { signal: controller.signal });
+        const result = await api<TodayResponse>("/api/hoje", { signal: controller.signal, schema: todaySchema });
         if (sequence === requestSequence.current) setDay(result);
       } else if (currentTab === "historico") {
         const selectedMonth = month;
         const result = await api<HistoryResponse>(
           `/api/historico?mes=${encodeURIComponent(selectedMonth)}`,
-          { signal: controller.signal }
+          { signal: controller.signal, schema: historySchema }
         );
         if (sequence === requestSequence.current && selectedMonth === month) setHistory(result);
       } else {
-        const result = await api<BalanceResponse>("/api/saldo", { signal: controller.signal });
+        const result = await api<BalanceResponse>("/api/saldo", { signal: controller.signal, schema: balanceSchema });
         if (sequence === requestSequence.current) setBalance(result);
       }
     } catch (error) {
@@ -92,7 +93,7 @@ export default function App() {
 
   const register = useCallback(
     async (body: RegisterPointRequest) => {
-      const result = await api<RegisterPointResponse>("/api/pontos", { method: "POST", body });
+      const result = await api<RegisterPointResponse>("/api/pontos", { method: "POST", body, schema: registerPointSchema });
       setDay(result);
       setHistory(null);
       setBalance(null);
@@ -144,7 +145,8 @@ export default function App() {
       try {
         await api<{ ok: true }>("/api/login", {
           method: "POST",
-          body: { usuario: username.trim(), senha: password }
+          body: { usuario: username.trim(), senha: password },
+          schema: okSchema
         });
         setPassword("");
         setAuthenticated(true);
@@ -161,7 +163,7 @@ export default function App() {
 
   const logout = useCallback(async () => {
     try {
-      await api<{ ok: true }>("/api/sair", { method: "POST" });
+      await api<{ ok: true }>("/api/sair", { method: "POST", schema: okSchema });
       resetSession();
     } catch (error) {
       notify(errorMessage(error));
@@ -171,7 +173,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       try {
-        await api<{ autenticado: true }>("/api/sessao");
+        await api<{ autenticado: true }>("/api/sessao", { schema: sessionSchema });
         setAuthenticated(true);
         stateRef.current = { ...stateRef.current, authenticated: true };
         await loadTab();

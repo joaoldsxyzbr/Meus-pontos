@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { ApiError as ApiErrorBody } from "../../../src/shared/contracts.ts";
 
 export class HttpError extends Error {
@@ -10,10 +11,21 @@ export class HttpError extends Error {
   }
 }
 
-/** Nunca armazena dados autenticados em cache, LocalStorage ou service worker. */
+/** Resposta recebida mas fora do contrato esperado. */
+export class ContractError extends Error {
+  constructor(readonly path: string) {
+    super("Resposta do servidor em formato inesperado. Atualize o aplicativo.");
+    this.name = "ContractError";
+  }
+}
+
+/**
+ * Nunca armazena dados autenticados em cache, LocalStorage ou service worker.
+ * Quando um schema é informado, a resposta é validada antes de chegar à tela.
+ */
 export async function api<T>(
   path: `/api/${string}`,
-  options?: { method?: string; body?: unknown; signal?: AbortSignal }
+  options?: { method?: string; body?: unknown; signal?: AbortSignal; schema?: z.ZodType<T> }
 ): Promise<T> {
   const init: RequestInit = {
     method: options?.method ?? "GET",
@@ -40,5 +52,8 @@ export async function api<T>(
       response.status
     );
   }
-  return data as T;
+  if (!options?.schema) return data as T;
+  const parsed = options.schema.safeParse(data);
+  if (!parsed.success) throw new ContractError(path);
+  return parsed.data;
 }

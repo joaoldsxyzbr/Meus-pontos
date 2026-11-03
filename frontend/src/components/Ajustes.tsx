@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Adjustment, AdjustmentsPage } from "../../../src/shared/contracts.ts";
 import { api } from "../lib/api.ts";
+import { adjustmentsPageSchema, okSchema } from "../lib/schemas.ts";
 import { brazilDate, displayDate, minutesText } from "../lib/time.ts";
 
 interface Props {
@@ -52,7 +53,7 @@ export default function Ajustes({ changed, notify, onError }: Props) {
     setLoading(true);
     setMessage("");
     try {
-      const result = await api<AdjustmentsPage>("/api/ajustes?offset=0");
+      const result = await api<AdjustmentsPage>("/api/ajustes?offset=0", { schema: adjustmentsPageSchema });
       if (current === sequence.current) {
         setItems(result.ajustes);
         setNextOffset(result.proximo_offset);
@@ -73,7 +74,7 @@ export default function Ajustes({ changed, notify, onError }: Props) {
     const offset = nextOffset;
     setMoreBusy(true);
     try {
-      const page = await api<AdjustmentsPage>(`/api/ajustes?offset=${offset}`);
+      const page = await api<AdjustmentsPage>(`/api/ajustes?offset=${offset}`, { schema: adjustmentsPageSchema });
       const ids = new Set(items.map((item) => item.id));
       setItems([...items, ...page.ajustes.filter((item) => !ids.has(item.id))]);
       setNextOffset(page.proximo_offset);
@@ -92,7 +93,8 @@ export default function Ajustes({ changed, notify, onError }: Props) {
     try {
       await api<{ ok: true }>(id === null ? "/api/ajustes" : `/api/ajustes/${id}`, {
         method: id === null ? "POST" : "PUT",
-        body: { tipo: action, duracao: duration.trim(), data: date, motivo: reason.trim() }
+        body: { tipo: action, duracao: duration.trim(), data: date, motivo: reason.trim() },
+        schema: okSchema
       });
       closeForm();
       notify(id === null ? "Ajuste salvo." : "Ajuste atualizado.");
@@ -110,7 +112,7 @@ export default function Ajustes({ changed, notify, onError }: Props) {
       return;
     setBusy(true);
     try {
-      await api<{ ok: true }>(`/api/ajustes/${item.id}`, { method: "DELETE" });
+      await api<{ ok: true }>(`/api/ajustes/${item.id}`, { method: "DELETE", schema: okSchema });
       if (editId === item.id) closeForm();
       notify("Ajuste excluído.");
       changed();

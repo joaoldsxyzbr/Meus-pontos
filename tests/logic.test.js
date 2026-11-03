@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "../src/logic.ts";
+import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth, isValidSequence } from "../src/logic.ts";
 
 test("Brasília usa data e horário locais", () => {
   assert.deepEqual(brazilNow(new Date("2026-10-20T20:35:00Z")), { date: "2026-10-20", time: "17:35" });
@@ -36,4 +36,30 @@ test("Etapas previstas são definidas pela configuração, não pelo dia da sema
   assert.deepEqual(expectedTypes(false, 480), ["entrada", "saida"]);
   assert.deepEqual(expectedTypes(true, 240), ["entrada", "ida_intervalo", "volta_intervalo", "saida"]);
   assert.deepEqual(expectedTypes(false, 0), []);
+});
+
+test("Sequência válida aceita jornada completa, parcial e sem intervalo", () => {
+  const row = (tipo, horario) => ({ tipo, horario });
+  assert.equal(isValidSequence([]), true);
+  assert.equal(isValidSequence([row("entrada", "09:00")]), true);
+  assert.equal(isValidSequence([row("entrada", "09:00"), row("saida", "18:00")]), true);
+  assert.equal(isValidSequence([
+    row("entrada", "09:00"), row("ida_intervalo", "12:00"),
+    row("volta_intervalo", "13:00"), row("saida", "18:00")
+  ]), true);
+});
+
+test("Sequência inválida rejeita ordem trocada, tipo fora da ordem e horário regressivo", () => {
+  const row = (tipo, horario) => ({ tipo, horario });
+  // tipo fora da sequência canônica
+  assert.equal(isValidSequence([row("ida_intervalo", "12:00"), row("entrada", "09:00")]), false);
+  // horário não crescente
+  assert.equal(isValidSequence([row("entrada", "18:00"), row("saida", "09:00")]), false);
+  assert.equal(isValidSequence([row("entrada", "09:00"), row("saida", "09:00")]), false);
+  // intervalo misturado com jornada curta
+  assert.equal(isValidSequence([row("entrada", "09:00"), row("volta_intervalo", "10:00")]), false);
+  // batidas além do esperado
+  assert.equal(isValidSequence([
+    row("entrada", "09:00"), row("saida", "12:00"), row("entrada", "13:00")
+  ]), false);
 });

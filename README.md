@@ -1,44 +1,61 @@
 # Meus Pontos
 
-PWA pessoal de registro de ponto com **Svelte 5, TypeScript e Vite**. API em Cloudflare Workers/Hono e banco D1.
+PWA pessoal de registro de ponto com **React 19, TypeScript e Vite**. API em Cloudflare
+Workers/Hono e banco D1.
 
 ## Funcionalidades
 
-- **Ponto:** horário de Brasília, ajuste de 1 minuto, confirmação de batidas futuras, verificação de data e tipo no servidor e atualização na virada do dia.
-- **Histórico:** jornadas por mês, horários, faltas e pendências; correção manual de horário ou exclusão da última batida, sempre com motivo auditado.
-- **Banco de horas:** saldo consolidado, ajustes, faltas e pendências; ajustes paginados sem corte na centésima operação.
-- **Login:** apenas usuário e senha; botão de sair. A sessão autenticada é mantida por até sete dias em cookie seguro, sem guardar senha ou token em localStorage.
+- **Ponto:** horário de Brasília, ajuste de 1 minuto, confirmação de batidas futuras,
+  verificação de data e tipo no servidor e atualização na virada do dia.
+- **Histórico:** jornadas por mês, horários, faltas e pendências; correção manual de horário
+  ou exclusão da última batida, sempre com motivo auditado.
+- **Banco de horas:** saldo consolidado, ajustes, faltas e pendências; ajustes paginados.
+- **Login:** apenas usuário e senha; botão de sair. Sessão em cookie seguro por até sete dias,
+  sem guardar senha ou token em localStorage.
 
-O aplicativo usa o D1 `meus-pontos` existente. A migração `migrations/0001_integridade_e_auditoria.sql` já foi aplicada em produção anteriormente. **A troca Svelte 5 não modifica o schema nem executa migrações.** Consulte [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
+O aplicativo usa o D1 `meus-pontos` existente. A migração `migrations/0001_integridade_e_auditoria.sql`
+já foi aplicada em produção. **Nenhuma alteração de interface executa migrações.**
+Consulte [docs/ARQUITETURA.md](docs/ARQUITETURA.md) e [docs/HISTORICO.md](docs/HISTORICO.md).
 
 ## Estrutura
 
-- `frontend/` — interface Svelte 5 e componentes.
-- `public/` — ícone e manifest da PWA, copiados para o pacote de homologação.
-- `src/worker.js` — API e acesso ao D1.
-- `src/auth.js` — autenticação nativa PBKDF2 + HMAC.
-- `src/logic.js` e `src/schedule.js` — sequência das batidas, escala e horários de Brasília.
-- `src/corrections.js` — retificação de batidas e trilha de auditoria transacional.
+- `frontend/` — interface React e componentes.
+- `public/` — ícone e manifest da PWA.
+- `src/worker.ts` — API e acesso ao D1.
+- `src/auth.ts` — autenticação nativa PBKDF2 + HMAC.
+- `src/logic.ts` — sequência das batidas, validações e horário de Brasília.
+- `src/schedule.ts` — escala e carga prevista.
+- `src/corrections.ts` — retificação de batidas e trilha de auditoria transacional.
+- `src/adjustments.ts` — ajustes manuais do banco de horas.
+- `src/env.d.ts` — bindings do Worker tipados.
 - `scripts/criar-login.mjs` — gera credenciais fortes e valores dos secrets.
-- `tests/` — testes nativos com Node e SQLite/Python; `scripts/browser-svelte-smoke.mjs` valida fluxos com Chrome headless.
-- `wrangler.jsonc` — Worker, D1, rate limit e build de produção via Svelte.
-- `scripts/build-release.mjs` — prepara a PWA de publicação a partir do pacote de homologação validado.
+- `scripts/build-release.mjs` — prepara a PWA de publicação.
+- `tests/` — testes Node, Vitest/workerd e SQLite/Python.
+- `wrangler.jsonc` — Worker, D1, rate limit e build de produção.
 
 ## Configurar o primeiro usuário
 
-Para preparar as credenciais, execute localmente (Node.js instalado):
-
 ```sh
-node scripts/criar-login.mjs joaoldsxyzbr
+node scripts/criar-login.mjs seu-usuario
 ```
 
-O comando imprime uma **senha aleatória forte** para você guardar e os três valores abaixo. Cada valor deve ser configurado como **Secret** no Worker `meus-pontos` da Cloudflare, sem colocá-los em arquivos versionados ou neste chat:
+O comando imprime uma **senha aleatória forte** e os três valores abaixo. Cada um deve ser
+configurado como **Secret** no Worker `meus-pontos`, sem colocá-los em arquivos versionados
+ou em conversas:
 
 - `PONTO_USERNAME` — nome do usuário.
-- `PONTO_PASSWORD_RECORD` — hash PBKDF2-SHA256 da senha com salt individual e 100.000 iterações.
+- `PONTO_PASSWORD_RECORD` — hash PBKDF2-SHA256 (salt individual, 100.000 iterações).
 - `PONTO_SESSION_SECRET` — segredo aleatório de 256 bits que assina sessões.
 
-**Primeiro publique o Worker** sem credenciais. Ele ficará em modo seguro: mostrará o login, mas a API responderá HTTP 503 até os secrets serem configurados.\n\n```sh\nnpx wrangler@latest login\nnpx wrangler@latest deploy\n```\n\nDepois, no painel da Cloudflare, configure os três secrets nas variáveis/segredos do Worker. Alternativamente, pelo Wrangler (CLI **oficial da Cloudflare**, exige autenticação na conta):
+Publique o Worker antes de configurar os secrets: ele fica em modo seguro (HTTP 503) e não
+expõe registros.
+
+```sh
+npx wrangler@latest login
+npx wrangler@latest deploy
+```
+
+Depois, configure os três secrets no painel da Cloudflare ou via Wrangler:
 
 ```sh
 npx wrangler@latest secret put PONTO_USERNAME
@@ -46,50 +63,48 @@ npx wrangler@latest secret put PONTO_PASSWORD_RECORD
 npx wrangler@latest secret put PONTO_SESSION_SECRET
 ```
 
-Cole o respectivo valor no prompt de cada comando. Não informe a senha inicial quando solicitarem `PONTO_PASSWORD_RECORD`: informe o registro de hash gerado pelo script.
+Não informe a senha inicial em `PONTO_PASSWORD_RECORD`: use o registro de hash gerado.
 
-## Publicação automática via GitHub e Cloudflare Workers Builds
+## Publicação
 
-O Worker `meus-pontos` está ligado ao GitHub e publica automaticamente os commits da branch `main`. O `wrangler.jsonc` contém o build Svelte antes do deploy; **um merge na main também é uma alteração de produção**. A API e o D1 permanecem os mesmos. Veja [RELEASE-SVELTE-CONTROLADA.md](docs/RELEASE-SVELTE-CONTROLADA.md) para testes e rollback.
+O Worker `meus-pontos` está ligado ao GitHub e publica automaticamente os commits da
+branch `main`. O `wrangler.jsonc` executa o build antes do deploy, então
+**um merge na `main` é uma alteração de produção**.
 
-## Histórico de publicação (30/10/2026; etapas anteriores)
+O workflow manual `.github/workflows/deploy.yml` é a alternativa de emergência e exige
+`CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` nos Secrets do GitHub.
 
-- **D1 de produção migrado com sucesso:** a tabela `auditoria_pontos` e as novas views foram aplicadas. Os 35 pontos e os 11 dias históricos foram conferidos com o backup, sem diferenças de saldo, carga, pendência ou classificação.
-- **Código atualizado na `main`:** PR #4 mesclado e CI aprovado; publicação posterior via Wrangler foi detectada e o código do backend implantado confere com a `main`.
-- **Worker publicado (observado):** em 30/10/2026, a Cloudflare registrou uma implantação via Wrangler da versão 17 (`0e9ba29b-f236-4f69-a223-851684cf2167`), com 100% do tráfego. O source map contém os mesmos seis arquivos de backend da `main`, conferidos integralmente. O vínculo `ASSETS` está presente, mas os arquivos estáticos e o login real ainda precisam de verificação em navegador. O workflow manual `Publicar Meus Pontos na Cloudflare` permanece disponível para futuras publicações, mediante configuração segura de `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` em Settings → Secrets and variables → Actions.
-- Não inclua tokens, senhas ou backups neste repositório nem nesta conversa. O backup anterior à migração permanece no D1 privado `meus-pontos-backup-20261030`. O sábado alternado continua sem data de referência e não foi ativado.
-
-## Publicação\n\nUse a conta Cloudflare que hospeda o D1 `meus-pontos`. Depois de publicar e configurar os três secrets, abra o endereço HTTPS do Worker. Apenas o usuário e a senha gerados permitirão acesso.\n\nSem os secrets necessários, a API permanece indisponível (HTTP 503) e **não expõe os registros**.
-
-Para trocar a senha, gere novas credenciais com o script e atualize **os três secrets**. A rotação de `PONTO_SESSION_SECRET` invalida as sessões antigas.
+Para trocar a senha, gere novas credenciais e atualize **os três secrets**. Rotacionar
+`PONTO_SESSION_SECRET` invalida as sessões antigas.
 
 ## Segurança e privacidade
 
-- Senha verificada por PBKDF2-SHA256 (**100.000 iterações**) via Web Crypto nativa, sem bibliotecas de terceiros.
-- Cookie `__Host-mp_session` assinado com HMAC-SHA256, `HttpOnly`, `Secure` e `SameSite=Strict`. A senha nunca é salva pelo JavaScript ou pelo D1.
-- API de pontos, histórico e saldo exige sessão válida. Toda gravação exige origem legítima.
-- Rate limiting oficial Cloudflare: até oito tentativas de login por minuto por endereço de origem; isso reduz mas não elimina ataques.
-- O service worker armazena **apenas recursos estáticos**. Dados de ponto e respostas da API nunca entram no cache.
-- O aplicativo pode abrir offline, mas consulta e registro precisam de conexão.
+- Senha verificada por PBKDF2-SHA256 (100.000 iterações) via Web Crypto, sem bibliotecas.
+- Cookie `__Host-mp_session` assinado com HMAC-SHA256, `HttpOnly`, `Secure`, `SameSite=Strict`.
+- API exige sessão válida; toda gravação exige origem legítima.
+- Rate limiting oficial Cloudflare: oito tentativas de login por minuto por IP.
+- O service worker armazena **apenas recursos estáticos**; `/api/*` nunca é interceptado.
+- O aplicativo abre offline, mas consulta e registro precisam de conexão.
 
 ## Testes
 
 ```sh
-npm test
+npm ci
+npm run typecheck        # backend, frontend e contratos
+npm test                 # lógica, API, correções, ajustes, escala, schemas
+npm run test:workers     # Worker real em workerd + D1 local
+npm run build:release && npm run test:release
 ```
 
-Os testes JavaScript usam apenas recursos nativos do Node.js. O GitHub Actions também executa testes SQL SQLite com Python e smoke test Chrome headless com API simulada.
+Os testes Chrome headless e o worker em `wrangler dev --local` exigem Chrome instalado.
 
-## Observações
-
-- A implantação e os secrets do Worker já existem na Cloudflare conectada; isso não comprova que o login real esteja funcionando. Não reconfigure credenciais nem publique sem validar o ambiente.
-- Jornadas usam `jornada_padrao`, `resumo_diario` e `saldo_total`. A migração prepara sábados alternados apenas quando uma data real confirmada é cadastrada em `config.sabado_trabalhado_inicio`.
-- A atualização das views pode alterar saldos de jornadas incompletas, dias correntes e dias com justificativa; conferir diferenças antes de aplicar.
 ## Regras para correções e publicação
 
-- O formulário de correções aceita editar **somente o horário** preservando a ordem, ou excluir **a última** batida da data. Alterações exigem motivo e são salvas na tabela `auditoria_pontos`. Mudanças arbitrárias de tipo ou sequência precisam de revisão assistida, não de alteração silenciosa.
-- O navegador envia `data`, `tipo` e `horario`; o Worker rejeita estado obsoleto com HTTP 409. Aparelhos com cache antigo precisam atualizar o PWA.
-- O D1 e as views são a fonte oficial do saldo. Nenhuma alteração estrutural deve ser implantada sem validação prévia: [RELEASE-VALIDACAO.md](RELEASE-VALIDACAO.md).
-
-- Em dia de folga ou feriado, a pessoa pode optar por registrar trabalho mediante confirmação explícita; o saldo é calculado com carga prevista zero quando a regra justificar a folga.
-- Evidências de backup persistente no D1 e teste de migração isolada: [VALIDACAO-2026-10-30.md](VALIDACAO-2026-10-30.md).
+- O formulário de correções aceita editar **somente o horário** preservando a ordem, ou
+  excluir **a última** batida da data. Alterações exigem motivo e vão para `auditoria_pontos`.
+- O navegador envia `data`, `tipo` e `horario`; o Worker rejeita estado obsoleto com HTTP 409.
+- O D1 e as views são a fonte oficial do saldo.
+- Não execute `wrangler d1 migrations apply --remote`: a tabela `d1_migrations` ainda não
+  foi reconciliada com a aplicação manual da migração `0001`.
+- Em dia de folga ou feriado, o trabalho pode ser registrado mediante confirmação explícita,
+  com carga prevista zero.

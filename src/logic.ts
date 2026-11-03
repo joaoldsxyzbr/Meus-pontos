@@ -31,9 +31,7 @@ export function weekday(date: string): number {
 
 export function expectedTypes(usesInterval: boolean, loadMinutes: number): PointType[] {
   if (!Number.isFinite(Number(loadMinutes)) || Number(loadMinutes) <= 0) return [];
-  return usesInterval
-    ? ["entrada", "ida_intervalo", "volta_intervalo", "saida"]
-    : ["entrada", "saida"];
+  return [...(usesInterval ? SEQUENCES.comIntervalo : SEQUENCES.semIntervalo)];
 }
 
 export interface PointRow {
@@ -55,6 +53,25 @@ export function nextType(
 
 export function validTime(value: unknown): value is string {
   return typeof value === "string" && /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value);
+}
+
+/**
+ * Sequência canônica de uma jornada: com intervalo (4 batidas) ou sem (2).
+ * Fonte única usada tanto para sugerir a próxima batida quanto para validar
+ * correções, evitando que as duas regras divirjam.
+ */
+export const SEQUENCES = {
+  comIntervalo: ["entrada", "ida_intervalo", "volta_intervalo", "saida"],
+  semIntervalo: ["entrada", "saida"]
+} as const satisfies Record<string, readonly PointType[]>;
+
+/** Confere se as batidas seguem uma sequência canônica, em ordem crescente. */
+export function isValidSequence(rows: readonly PointRow[]): boolean {
+  if (!rows.every((row, i) => i === 0 || rows[i - 1]!.horario < row.horario)) return false;
+  return Object.values(SEQUENCES).some(
+    (sequence) =>
+      rows.length <= sequence.length && rows.every((row, i) => sequence[i] === row.tipo)
+  );
 }
 
 export function validMonth(value: unknown): value is string {
