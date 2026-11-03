@@ -60,7 +60,9 @@ export default function Ponto({ day, loading, register, refresh, notify }: Props
   function commitDraft() {
     const value = draft;
     setDraft(null);
-    if (/^\d{2}:\d{2}$/.test(value ?? "")) setChosen(clockTime(minuteValue(value)));
+    if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value)) {
+      setChosen(clockTime(minuteValue(value)));
+    }
   }
 
   async function submit() {
