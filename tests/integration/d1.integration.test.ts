@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyD1Migrations, env } from "cloudflare:test";
 import schema from "../fixtures/d1-base.sql?raw";
-import { brazilNow } from "../../src/logic.js";
+import { brazilNow } from "../../src/logic.ts";
 
 /**
  * Usa o D1 local do Miniflare/workerd. Nenhum código aqui possui

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { correctionsApi } from "../src/corrections.js";
-import { brazilNow } from "../src/logic.js";
+import { correctionsApi } from "../src/corrections.ts";
+import { brazilNow } from "../src/logic.ts";
 
 const origin = "https://pontos.example";
 const today = brazilNow().date;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseAdjustment, validAdjustmentDate } from "../src/logic.js";
+import { parseAdjustment, validAdjustmentDate } from "../src/logic.ts";
 const today = "2026-10-21";
 const valid = { data: "2026-10-20", tipo: "credito", duracao: "01:30", motivo: "Correção de saldo" };
 test("Créditos e descontos geram minutos assinados", () => {

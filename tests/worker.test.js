@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { pbkdf2Sync } from "node:crypto";
-import worker from "../src/worker.js";
-import { brazilNow } from "../src/logic.js";
+import worker from "../src/worker.ts";
+import { brazilNow } from "../src/logic.ts";
 
 const ORIGIN = "https://pontos.exemplo.com";
 const USER = "joaoldsxyzbr";

@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import releaseWorker from "../src/release-worker.js";
+import releaseWorker from "../src/release-worker.ts";
 
 const load = async p => readFile("dist/release/" + p, "utf8");
 
 test("Wrangler de produção publica Svelte automaticamente sem alterar D1, login ou rotas", async () => {
   const cfg = JSON.parse(await readFile("wrangler.jsonc", "utf8"));
   assert.equal(cfg.name, "meus-pontos");
-  assert.equal(cfg.main, "src/release-worker.js");
+  assert.equal(cfg.main, "src/release-worker.ts");
   assert.equal(cfg.compatibility_date, "2026-10-20");
   assert.equal(cfg.assets.directory, "./dist/release");
   assert.equal(cfg.assets.binding, "ASSETS");

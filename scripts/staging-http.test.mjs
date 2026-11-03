@@ -35,7 +35,7 @@ function lockedConfig() {
         data.d1_databases?.length !== 1 ||
         data.d1_databases[0].database_id !== expectedId ||
         data.d1_databases[0].database_name !== dbName ||
-        (release && (data.main !== "src/release-worker.js" ||
+        (release && (data.main !== "src/release-worker.ts" ||
            data.assets?.directory !== "./dist/release" ||
            data.build?.command !== "npm run build:release"))) {
       throw new Error("Configuração do Worker inesperada. Teste local abortado.");
@@ -243,6 +243,16 @@ test("API real + Svelte no Worker " + (release ? "de produção" : "staging") + 
       } else processWorker.kill("SIGTERM");
       await Promise.race([processClosed, delay(5000)]);
     }
-    await rm(temp, { recursive: true, force: true });
+    // No Windows o workerd libera os arquivos do D1 com atraso após o término;
+    // repetir a remoção evita EBUSY sem mascarar falhas reais de limpeza.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        await rm(temp, { recursive: true, force: true });
+        break;
+      } catch (error) {
+        if (error?.code !== "EBUSY" && error?.code !== "EPERM") throw error;
+        await delay(300);
+      }
+    }
   }
 });

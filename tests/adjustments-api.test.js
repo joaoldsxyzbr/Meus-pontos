@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { adjustmentsApi } from "../src/adjustments.js";
+import { adjustmentsApi } from "../src/adjustments.ts";
 
 const makeEnv = () => {
   const calls = [];
@@ -49,7 +49,7 @@ test("API bloqueia ajuste inválido", async () => {
 });
 
 test("Scripts adicionais passam na verificação de sintaxe nativa", () => {
-  for (const path of ["src/adjustments.js"]) {
+  for (const path of ["src/adjustments.ts"]) {
     const run = spawnSync(process.execPath, ["--check", path], { encoding: "utf8" });
     assert.equal(run.status, 0, path + ": " + run.stderr);
   }

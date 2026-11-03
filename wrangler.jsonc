@@ -1,6 +1,6 @@
 {
   "name": "meus-pontos",
-  "main": "src/release-worker.js",
+  "main": "src/release-worker.ts",
   "compatibility_date": "2026-10-20",
   "assets": {
     "directory": "./dist/release",

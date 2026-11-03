@@ -1,10 +1,26 @@
 import { Hono } from "hono";
-import { brazilNow, weekday, nextType, expectedTypes } from "./logic.js";
-import { loginSchema, timeSchema, pointTypeSchema, monthSchema } from "./shared/schemas.js";
-import { authConfigured, checkCredentials, createSession, verifySession, sessionCookie, clearSessionCookie } from "./auth.js";
-import { adjustmentsApi } from "./adjustments.js";
-import { correctionsApi } from "./corrections.js";
-import { effectiveSchedule } from "./schedule.js";
+import { brazilNow, weekday, nextType, expectedTypes } from "./logic.ts";
+import { loginSchema, timeSchema, pointTypeSchema, monthSchema } from "./shared/schemas.ts";
+import {
+  authConfigured,
+  checkCredentials,
+  createSession,
+  verifySession,
+  sessionCookie,
+  clearSessionCookie
+} from "./auth.ts";
+import { adjustmentsApi } from "./adjustments.ts";
+import { correctionsApi } from "./corrections.ts";
+import { effectiveSchedule } from "./schedule.ts";
+import type { EffectiveSchedule } from "./schedule.ts";
+import type { Env } from "./env.ts";
+import type { PointRow } from "./logic.ts";
+import type {
+  BalanceResponse,
+  HistoryDay,
+  PointIssue,
+  TodayResponse
+} from "./shared/contracts.ts";
 
 const headers = {
   "Cache-Control": "no-store",
@@ -13,28 +29,34 @@ const headers = {
   "X-Frame-Options": "DENY"
 };
 
-function json(data, status = 200, extraHeaders = {}) {
+function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
   return Response.json(data, { status, headers: { ...headers, ...extraHeaders } });
 }
 
-function acceptedPostOrigin(request) {
+function acceptedPostOrigin(request: Request): boolean {
   const origin = request.headers.get("Origin");
   const site = request.headers.get("Sec-Fetch-Site");
   return (!origin || origin === new URL(request.url).origin) && site !== "cross-site";
 }
 
-async function login(request, env) {
+async function login(request: Request, env: Env): Promise<Response> {
   if (!env.LOGIN_LIMITER) return json({ error: "Limite de tentativas indisponível." }, 503);
-  const ip = request.headers.get("CF-Connecting-IP") || "local";
+  const ip = request.headers.get("CF-Connecting-IP") ?? "local";
   const limit = await env.LOGIN_LIMITER.limit({ key: "login:" + ip });
-  if (!limit.success) return json({ error: "Muitas tentativas. Aguarde um minuto." }, 429, { "Retry-After": "60" });
+  if (!limit.success)
+    return json({ error: "Muitas tentativas. Aguarde um minuto." }, 429, { "Retry-After": "60" });
 
   if (!request.headers.get("Content-Type")?.toLowerCase().startsWith("application/json")) {
     return json({ error: "Envie usuário e senha em JSON." }, 415);
   }
-  if (Number(request.headers.get("Content-Length") || 0) > 2048) return json({ error: "Dados muito longos." }, 413);
-  let input;
-  try { input = await request.json(); } catch { return json({ error: "Dados inválidos." }, 400); }
+  if (Number(request.headers.get("Content-Length") ?? 0) > 2048)
+    return json({ error: "Dados muito longos." }, 413);
+  let input: unknown;
+  try {
+    input = await request.json();
+  } catch {
+    return json({ error: "Dados inválidos." }, 400);
+  }
   const credentials = loginSchema.safeParse(input);
   if (!credentials.success) return json({ error: "Usuário ou senha inválidos." }, 401);
   const username = credentials.data.usuario;
@@ -46,12 +68,22 @@ async function login(request, env) {
   return json({ ok: true, usuario: env.PONTO_USERNAME }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
-async function scheduleFor(env, date) {
+interface WeeklyRow {
+  carga_minutos: number;
+  usa_intervalo: number;
+}
+
+async function scheduleFor(env: Env, date: string): Promise<EffectiveSchedule> {
   const [weekly, config, justification] = await Promise.all([
     env.DB.prepare("SELECT carga_minutos, usa_intervalo FROM jornada_padrao WHERE dia_semana = ?")
-      .bind(weekday(date)).first(),
-    env.DB.prepare("SELECT valor FROM config WHERE chave = 'sabado_trabalhado_inicio'").first(),
-    env.DB.prepare("SELECT tipo FROM justificativas WHERE data = ?").bind(date).first()
+      .bind(weekday(date))
+      .first<WeeklyRow>(),
+    env.DB.prepare("SELECT valor FROM config WHERE chave = 'sabado_trabalhado_inicio'").first<{
+      valor: string;
+    }>(),
+    env.DB.prepare("SELECT tipo FROM justificativas WHERE data = ?").bind(date).first<{
+      tipo: string;
+    }>()
   ]);
   return effectiveSchedule(date, {
     carga_minutos: weekly?.carga_minutos ?? 0,
@@ -61,14 +93,27 @@ async function scheduleFor(env, date) {
   });
 }
 
-async function today(env) {
+interface DailyRow {
+  total_trabalhado_minutos: number | null;
+  carga_prevista: number;
+  saldo_minutos: number | null;
+  pendencia: PointIssue | null;
+}
+
+async function today(env: Env): Promise<TodayResponse> {
   const now = brazilNow();
   const [schedule, points, day] = await Promise.all([
     scheduleFor(env, now.date),
-    env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all(),
-    env.DB.prepare("SELECT total_trabalhado_minutos, carga_prevista, saldo_minutos, pendencia FROM resumo_diario WHERE data = ?").bind(now.date).first()
+    env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario")
+      .bind(now.date)
+      .all<PointRow>(),
+    env.DB.prepare(
+      "SELECT total_trabalhado_minutos, carga_prevista, saldo_minutos, pendencia FROM resumo_diario WHERE data = ?"
+    )
+      .bind(now.date)
+      .first<DailyRow>()
   ]);
-  const rows = points.results || [];
+  const rows = points.results ?? [];
   return {
     date: now.date,
     now: now.time,
@@ -76,48 +121,66 @@ async function today(env) {
     // Em dia de folga, a entrada pode ser iniciada voluntariamente.
     // Após a entrada, exibir as etapas reais sem impor carga prevista.
     next_type: nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 1),
-    expected_steps: expectedTypes(Boolean(schedule?.usa_intervalo),
-      schedule?.carga_minutos || (rows.length ? 1 : 0)),
+    expected_steps: expectedTypes(
+      Boolean(schedule?.usa_intervalo),
+      schedule?.carga_minutos || (rows.length ? 1 : 0)
+    ),
     usa_intervalo: Boolean(schedule?.usa_intervalo),
-    justificativa: schedule?.justificativa || null,
+    justificativa: schedule?.justificativa ?? null,
     carga_minutos: schedule?.carga_minutos || 0,
     total_trabalhado_minutos: day?.total_trabalhado_minutos ?? null,
     saldo_minutos: day?.saldo_minutos ?? null,
-    pendencia: day?.pendencia || null
+    pendencia: day?.pendencia ?? null
   };
 }
 
-async function register(request, env) {
+interface RegisterBody {
+  horario?: unknown;
+  data?: unknown;
+  tipo?: unknown;
+  trabalho_em_folga?: unknown;
+}
+
+async function register(request: Request, env: Env): Promise<Response> {
   if (!request.headers.get("Content-Type")?.toLowerCase().startsWith("application/json")) {
     return json({ error: "Envie JSON." }, 415);
   }
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "JSON inválido." }, 400); }
+  let body: RegisterBody;
+  try {
+    body = (await request.json()) as RegisterBody;
+  } catch {
+    return json({ error: "JSON inválido." }, 400);
+  }
   const time = body?.horario;
   if (!timeSchema.safeParse(time).success) return json({ error: "Horário inválido." }, 400);
   const now = brazilNow();
   // A data e o tipo precisam corresponder ao que a pessoa viu na tela.
   // Clientes antigos sem esses campos falham de forma segura, sem gravar um tipo inesperado.
-  if (body?.data !== now.date) return json({ error: "O dia mudou. Atualize os registros antes de bater o ponto." }, 409);
+  if (body?.data !== now.date)
+    return json({ error: "O dia mudou. Atualize os registros antes de bater o ponto." }, 409);
   if (!pointTypeSchema.safeParse(body?.tipo).success)
     return json({ error: "Atualize o aplicativo antes de registrar um novo ponto." }, 409);
 
   const [schedule, result] = await Promise.all([
     scheduleFor(env, now.date),
-    env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario").bind(now.date).all()
+    env.DB.prepare("SELECT tipo, horario FROM pontos WHERE data = ? ORDER BY horario")
+      .bind(now.date)
+      .all<PointRow>()
   ]);
-  const rows = result.results || [];
+  const rows = result.results ?? [];
   if (!schedule?.carga_minutos && !rows.length && body?.trabalho_em_folga !== true)
     return json({ error: "Confirme explicitamente o trabalho neste dia de folga." }, 409);
   const type = nextType(rows, Boolean(schedule?.usa_intervalo), schedule?.carga_minutos || 1);
   if (!type) return json({ error: "Jornada completa ou batidas inconsistentes." }, 409);
-  if (body.tipo !== type) return json({ error: "Os registros mudaram. Atualize a tela e confirme a próxima batida." }, 409);
-  if (rows.length && time <= rows[rows.length - 1].horario) {
+  if (body.tipo !== type)
+    return json({ error: "Os registros mudaram. Atualize a tela e confirme a próxima batida." }, 409);
+  if (rows.length && (time as string) <= rows[rows.length - 1]!.horario) {
     return json({ error: "Horário deve ser posterior à batida anterior." }, 400);
   }
   try {
     await env.DB.prepare("INSERT INTO pontos (data, tipo, horario) VALUES (?, ?, ?)")
-      .bind(now.date, type, time).run();
+      .bind(now.date, type, time)
+      .run();
   } catch (error) {
     if (String(error).includes("UNIQUE") || String(error).includes("constraint")) {
       return json({ error: "Esse tipo de ponto já foi registrado. Atualize a tela." }, 409);
@@ -127,26 +190,32 @@ async function register(request, env) {
   return json({ ok: true, type, ...(await today(env)) }, 201);
 }
 
-async function history(request, env) {
+async function history(request: Request, env: Env): Promise<Response> {
   const currentMonth = brazilNow().date.slice(0, 7);
-  const month = new URL(request.url).searchParams.get("mes") || currentMonth;
+  const month = new URL(request.url).searchParams.get("mes") ?? currentMonth;
   if (!monthSchema.safeParse(month).success) return json({ error: "Mês inválido." }, 400);
   const records = await env.DB.prepare(
     "SELECT data, entrada, ida_intervalo, volta_intervalo, saida, total_trabalhado_minutos, carga_prevista, saldo_minutos, origem, pendencia FROM resumo_diario WHERE data BETWEEN ? AND ? ORDER BY data DESC"
-  ).bind(month + "-01", month + "-31").all();
-  return json({ month, days: records.results || [] });
+  )
+    .bind(month + "-01", month + "-31")
+    .all<HistoryDay>();
+  return json({ month, days: records.results ?? [] });
 }
 
-async function balance(env) {
+async function balance(env: Env): Promise<Response> {
   const [summary, adjustments] = await Promise.all([
-    env.DB.prepare("SELECT saldo_batidas_minutos, saldo_ajustes_minutos, saldo_total_minutos, pendencias, faltas FROM saldo_total").first(),
-    env.DB.prepare("SELECT COUNT(*) AS quantidade FROM ajustes_banco").first()
+    env.DB.prepare(
+      "SELECT saldo_batidas_minutos, saldo_ajustes_minutos, saldo_total_minutos, pendencias, faltas FROM saldo_total"
+    ).first<BalanceResponse>(),
+    env.DB.prepare("SELECT COUNT(*) AS quantidade FROM ajustes_banco").first<{
+      quantidade: number;
+    }>()
   ]);
-  return json({ ...summary, ajustes: adjustments?.quantidade || 0 });
+  return json({ ...summary, ajustes: adjustments?.quantidade ?? 0 });
 }
 
 // Mantém as respostas HTTP anteriores enquanto torna as rotas explícitas.
-const api = new Hono();
+const api = new Hono<{ Bindings: Env }>();
 
 api.onError((error) => {
   console.error("Falha em operação D1:", error?.name || "Erro");
@@ -166,13 +235,11 @@ api.use("/api/*", async (c, next) => {
 
 api.post("/api/login", (c) => login(c.req.raw, c.env));
 api.get("/api/sessao", async (c) =>
-  await verifySession(c.req.raw, c.env)
+  (await verifySession(c.req.raw, c.env))
     ? json({ autenticado: true, usuario: c.env.PONTO_USERNAME })
     : json({ error: "Sessão expirada ou inválida." }, 401)
 );
-api.post("/api/sair", () =>
-  json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() })
-);
+api.post("/api/sair", () => json({ ok: true }, 200, { "Set-Cookie": clearSessionCookie() }));
 
 api.use("/api/*", async (c, next) => {
   if (!(await verifySession(c.req.raw, c.env)))
@@ -181,7 +248,7 @@ api.use("/api/*", async (c, next) => {
   await next();
 });
 
-api.get("/api/hoje", (c) => today(c.env).then(data => json(data)));
+api.get("/api/hoje", (c) => today(c.env).then((data) => json(data)));
 api.post("/api/pontos", (c) => register(c.req.raw, c.env));
 api.get("/api/historico", (c) => history(c.req.raw, c.env));
 api.get("/api/saldo", (c) => balance(c.env));
@@ -195,7 +262,9 @@ api.post("/api/pontos/corrigir", async (c) =>
   (await correctionsApi(c.req.raw, c.env, new URL(c.req.url))) ??
     json({ error: "Rota não encontrada." }, 404)
 );
-api.on(["GET", "POST", "PUT", "DELETE"], ["/api/ajustes", "/api/ajustes/:id"],
+api.on(
+  ["GET", "POST", "PUT", "DELETE"],
+  ["/api/ajustes", "/api/ajustes/:id"],
   async (c) =>
     (await adjustmentsApi(c.req.raw, c.env, new URL(c.req.url))) ??
       json({ error: "Rota não encontrada." }, 404)
@@ -203,9 +272,8 @@ api.on(["GET", "POST", "PUT", "DELETE"], ["/api/ajustes", "/api/ajustes/:id"],
 api.notFound(() => json({ error: "Rota não encontrada." }, 404));
 
 export default {
-  async fetch(request, env, ctx) {
-    if (new URL(request.url).pathname.startsWith("/api/"))
-      return api.fetch(request, env, ctx);
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    if (new URL(request.url).pathname.startsWith("/api/")) return api.fetch(request, env, ctx);
 
     if (!env.ASSETS) return new Response("Assets não configurados.", { status: 503 });
     const response = await env.ASSETS.fetch(request);
@@ -213,7 +281,10 @@ export default {
     responseHeaders.set("X-Content-Type-Options", "nosniff");
     responseHeaders.set("Referrer-Policy", "no-referrer");
     responseHeaders.set("X-Frame-Options", "DENY");
-    responseHeaders.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+    responseHeaders.set(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+    );
     return new Response(response.body, { status: response.status, headers: responseHeaders });
   }
 };

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "../src/logic.js";
+import { brazilNow, weekday, nextType, expectedTypes, validTime, validMonth } from "../src/logic.ts";
 
 test("Brasília usa data e horário locais", () => {
   assert.deepEqual(brazilNow(new Date("2026-10-20T20:35:00Z")), { date: "2026-10-20", time: "17:35" });

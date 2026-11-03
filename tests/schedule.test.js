@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { effectiveSchedule } from "../src/schedule.js";
+import { effectiveSchedule } from "../src/schedule.ts";
 
 const base = { carga_minutos:240, usa_intervalo:0, sabado_referencia:null, justificativa:null };
 test("sem referência não inventa folgas",()=>{
