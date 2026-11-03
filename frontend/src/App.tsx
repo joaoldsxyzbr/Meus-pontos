@@ -89,6 +89,9 @@ export default function App() {
     if (tab === value) return;
     setTab(value);
     sequence.current++;
+    // Estado lido por loadTab precisa refletir a aba nova imediatamente:
+    // setTab só surte efeito na renderização seguinte.
+    current.current = { ...current.current, tab: value };
     // A tela é recarregada diretamente da API (nunca do cache).
     void loadTab();
   }
@@ -110,6 +113,8 @@ export default function App() {
     setMonth(value);
     setHistory(null);
     sequence.current++;
+    // Mesma sincronização de chooseTab: loadTab precisa do mês novo já.
+    current.current = { ...current.current, month: value };
     void loadTab();
   }
 
