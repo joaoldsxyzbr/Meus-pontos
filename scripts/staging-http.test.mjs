@@ -35,7 +35,7 @@ function lockedConfig() {
         data.d1_databases?.length !== 1 ||
         data.d1_databases[0].database_id !== expectedId ||
         data.d1_databases[0].database_name !== dbName ||
-        (release && (data.main !== "src/release-worker.js" ||
+        (release && (data.main !== "src/release-worker.ts" ||
            data.assets?.directory !== "./dist/release" ||
            data.build?.command !== "npm run build:release"))) {
       throw new Error("Configuração do Worker inesperada. Teste local abortado.");

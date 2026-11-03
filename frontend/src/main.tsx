@@ -1,12 +1,13 @@
-import { mount } from "svelte";
-import App from "./App.svelte";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App";
 import "./styles.css";
 import "./ajustes.css";
 import "./correcoes.css";
 
 const target = document.getElementById("app");
 if (!target) throw new Error("Elemento principal do aplicativo não encontrado.");
-mount(App, { target });
+createRoot(target).render(<StrictMode><App/></StrictMode>);
 
 /**
  * Ativado apenas pelo build de homologação, nunca pelo piloto de desenvolvimento.

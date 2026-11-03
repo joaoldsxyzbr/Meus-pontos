@@ -2,7 +2,7 @@ import { randomBytes, pbkdf2Sync } from "node:crypto";
 
 const username = process.argv[2];
 if (!/^[a-zA-Z0-9._-]{3,40}$/.test(username || "")) {
-  console.error("Uso: node scripts/criar-login.mjs seu-usuario");
+  console.error("Uso: node --experimental-strip-types scripts/criar-login.ts seu-usuario");
   process.exitCode = 1;
 } else {
   const password = randomBytes(24).toString("base64url");
