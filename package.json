@@ -10,10 +10,10 @@
     "test:workers": "vitest run --config vitest.config.ts",
     "check:frontend": "tsc -p frontend/tsconfig.json",
     "build:frontend": "vite build --config vite.frontend.config.ts",
-    "build:staging": "node scripts/build-staging.mjs",
-    "test:staging": "node --experimental-strip-types --test scripts/staging.test.mjs",
-    "build:release": "node scripts/build-release.mjs",
-    "test:release": "node --experimental-strip-types --test scripts/release.test.mjs"
+    "build:staging": "node --experimental-strip-types scripts/build-staging.ts",
+    "test:staging": "node --experimental-strip-types --test scripts/staging.test.ts",
+    "build:release": "node --experimental-strip-types scripts/build-release.ts",
+    "test:release": "node --experimental-strip-types --test scripts/release.test.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",
