@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
 
 /** Smoke de frontend isolado, com API simulada — nunca faz chamadas externas. */
-const root = path.resolve(process.env.PILOT_ROOT || "dist/svelte-pilot");
+const root = path.resolve(process.env.PILOT_ROOT || "dist/app");
 const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
   ".svg": "image/svg+xml" };
 const script = String.raw`
@@ -20,9 +21,18 @@ const script = String.raw`
     }
     throw new Error("Não concluiu: " + stage);
   };
+  // React mantém um "value tracker" no input e ignora eventos disparados após
+  // atribuição direta de .value. Usar o setter nativo faz o React perceber a mudança.
+  const setValue = (element, value, eventName = "input") => {
+    const prototype = element instanceof HTMLSelectElement
+      ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+    descriptor.set.call(element, value);
+    element.dispatchEvent(new Event(eventName, { bubbles: true }));
+  };
   const report = (ok, error = "") => {
     const result = document.createElement("output");
-    result.id = "__svelte_smoke";
+    result.id = "__app_smoke";
     result.textContent = JSON.stringify({
       ok, error, stage, width: innerWidth,
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 3,
@@ -34,10 +44,8 @@ const script = String.raw`
   };
   try {
     await wait(() => document.querySelector("#login-user")?.disabled === false);
-    document.querySelector("#login-user").value = "teste-ui";
-    document.querySelector("#login-user").dispatchEvent(new Event("input", { bubbles: true }));
-    document.querySelector("#login-password").value = "senha-ficticia";
-    document.querySelector("#login-password").dispatchEvent(new Event("input", { bubbles: true }));
+    setValue(document.querySelector("#login-user"), "teste-ui");
+    setValue(document.querySelector("#login-password"), "senha-ficticia");
     document.querySelector("#gate form button[type=submit]").click();
     stage = "ponto";
     await wait(() => document.querySelector("#gate")?.hidden === true);
@@ -55,11 +63,9 @@ const script = String.raw`
     document.querySelector("#correction-list button").click();
     await wait(() => document.querySelector("#correction-form"));
     const edited = document.querySelector("#correction-time");
-    edited.value = "08:30";
-    edited.dispatchEvent(new Event("input", { bubbles: true }));
+    setValue(edited, "08:30");
     const correctionReason = document.querySelector("#correction-reason");
-    correctionReason.value = "Teste sintético de correção";
-    correctionReason.dispatchEvent(new Event("input", { bubbles: true }));
+    setValue(correctionReason, "Teste sintético de correção");
     document.querySelector("#correction-form").requestSubmit();
     await wait(() => document.querySelector(".correction-card [role=\"status\"]")?.textContent.includes("Correção salva."));
     stage = "saldo";
@@ -71,11 +77,9 @@ const script = String.raw`
     document.querySelector(".ledger-heading button").click();
     await wait(() => document.querySelector("#ledger-form"));
     const durationInput = document.querySelector('#ledger-form input[placeholder="01:30"]');
-    durationInput.value = "01:30";
-    durationInput.dispatchEvent(new Event("input", { bubbles: true }));
+    setValue(durationInput, "01:30");
     const adjustmentReason = document.querySelector('#ledger-form input[placeholder^="Ex.:"]');
-    adjustmentReason.value = "Crédito sintético de teste";
-    adjustmentReason.dispatchEvent(new Event("input", { bubbles: true }));
+    setValue(adjustmentReason, "Crédito sintético de teste");
     document.querySelector("#ledger-form").requestSubmit();
     await wait(() => document.querySelectorAll(".ledger-item").length === 1);
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("+1h30"));
@@ -83,11 +87,9 @@ const script = String.raw`
     document.querySelector(".ledger-item .ledger-link").click();
     await wait(() => document.querySelector("#ledger-form"));
     const editedDuration = document.querySelector('#ledger-form input[placeholder="01:30"]');
-    editedDuration.value = "00:30";
-    editedDuration.dispatchEvent(new Event("input", { bubbles: true }));
+    setValue(editedDuration, "00:30");
     const debit = document.querySelector("#ledger-form select");
-    debit.value = "debito";
-    debit.dispatchEvent(new Event("change", { bubbles: true }));
+    setValue(debit, "debito", "change");
     document.querySelector("#ledger-form").requestSubmit();
     await wait(() => document.querySelector(".ledger-item")?.textContent.includes("−0h30"));
     await wait(() => document.querySelector("#balance-total")?.textContent.includes("−0h30"));
@@ -113,9 +115,21 @@ function dateBrazil() {
   return p.year + "-" + p.month + "-" + p.day;
 }
 function chromeBinary() {
-  for (const candidate of ["google-chrome", "google-chrome-stable", "chromium"]) {
-    const found = spawnSync("which", [candidate], { encoding: "utf8" });
-    if (found.status === 0) return found.stdout.trim();
+  if (process.platform === "win32") {
+    const roots = [process.env["PROGRAMFILES"], process.env["PROGRAMFILES(X86)"], process.env["LOCALAPPDATA"]];
+    for (const root of roots.filter(Boolean)) {
+      for (const relative of [
+        "Google/Chrome/Application/chrome.exe",
+        "Microsoft/Edge/Application/msedge.exe"
+      ]) {
+        const candidate = path.join(root, relative);
+        if (fsSync.existsSync(candidate)) return candidate;
+      }
+    }
+  }
+  for (const candidate of ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]) {
+    const found = spawnSync(process.platform === "win32" ? "where" : "which", [candidate], { encoding: "utf8" });
+    if (found.status === 0) return found.stdout.split(/\r?\n/)[0].trim();
   }
   throw new Error("Chrome/Chromium obrigatório não disponível");
 }
@@ -221,7 +235,8 @@ async function serve() {
     }
     try {
       let file = await fs.readFile(filename);
-      if (filename.endsWith("/index.html")) {
+      // Comparação independente de separador: path.resolve usa "\" no Windows.
+      if (path.basename(filename) === "index.html") {
         file = Buffer.from(file.toString().replace("</body>",
           '<script type="module" src="/__pilot_smoke.js"></script></body>'));
       }
@@ -246,19 +261,23 @@ async function browse(chrome, url, width, temp) {
     child.on("error", reject);
     child.on("exit", code => {
       if (code !== 0) return reject(new Error("Chrome saiu com código " + code + ": " + stderr.slice(-600)));
-      const match = stdout.match(/<output id="__svelte_smoke">([^<]*)<\/output>/);
-      if (!match) return reject(new Error("Svelte não retornou resultado no DOM: " + stdout.slice(-1200)));
+      const match = stdout.match(/<output id="__app_smoke">([^<]*)<\/output>/);
+      if (!match) { 
+        const failed = stdout.match(/__app_smoke[^>]*>([^<]*)/);
+        return reject(new Error("Aplicativo não retornou resultado no DOM: " + (failed?.[1] ?? "") +
+          " | " + stdout.slice(-1200)));
+      }
       resolve(JSON.parse(match[1]));
     });
   });
 }
 
-test("Svelte 5 renderiza, autentica e navega em desktop/mobile sem API real", { timeout: 120000 }, async () => {
+test("Aplicativo renderiza, autentica e navega em desktop/mobile sem API real", { timeout: 120000 }, async () => {
   const { server, port, requests } = await serve();
   try {
     const chrome = chromeBinary();
     for (const width of [1280, 390]) {
-      const temp = await fs.mkdtemp(path.join(os.tmpdir(), "meus-pontos-svelte-"));
+      const temp = await fs.mkdtemp(path.join(os.tmpdir(), "meus-pontos-app-"));
       try {
         const result = await browse(chrome, "http://127.0.0.1:" + port + "/", width, temp);
         assert.equal(result.ok, true, JSON.stringify(result));

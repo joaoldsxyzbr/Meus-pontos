@@ -1,18 +1,25 @@
-import type { ApiError as ApiErrorBody } from "../../../src/shared/contracts";
+import type { ApiError as ApiErrorBody } from "../../../src/shared/contracts.ts";
 
 export class HttpError extends Error {
-  constructor(message: string, readonly status: number) {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
     super(message);
     this.name = "HttpError";
+    this.status = status;
   }
 }
 
 /** Nunca armazena dados autenticados em cache, LocalStorage ou service worker. */
-export async function api<T>(path: `/api/${string}`, options?: { method?: string; body?: unknown }): Promise<T> {
+export async function api<T>(
+  path: `/api/${string}`,
+  options?: { method?: string; body?: unknown; signal?: AbortSignal }
+): Promise<T> {
   const init: RequestInit = {
     method: options?.method ?? "GET",
     credentials: "same-origin",
-    cache: "no-store"
+    cache: "no-store",
+    signal: options?.signal ?? null
   };
   if (options?.body !== undefined) {
     init.headers = { "Content-Type": "application/json" };

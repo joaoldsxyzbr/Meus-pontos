@@ -18,15 +18,15 @@ jobs:
           node-version: '22'
       - name: Instalar dependências da versão fixa
         run: npm ci --ignore-scripts
-      - name: Conferir componentes Svelte e TypeScript
+      - name: Conferir tipos do aplicativo e do backend
         run: npm run check:frontend
-      - name: Construir piloto Svelte sem tocar nos assets de produção
+      - name: Construir o aplicativo sem tocar nos assets de produção
         run: npm run build:frontend
       - name: Construir pacote PWA de homologação isolado
         run: npm run build:staging
       - name: Testar configuração e política de cache do staging
         run: npm run test:staging
-      - name: Construir e validar pacote Svelte para substituição futura
+      - name: Construir e validar pacote de publicação
         run: |
           npm run build:release
           npm run test:release
@@ -38,9 +38,9 @@ jobs:
         run: npm test
       - name: Integrar Worker e D1 local no runtime workerd
         run: npm run test:workers
-      - name: Testar PWA Svelte com API HTTP real e D1 local
+      - name: Testar PWA com API HTTP real e D1 local
         run: node --test scripts/staging-http.test.mjs
-      - name: Testar configuração real do Worker Svelte com D1 local descartável
+      - name: Testar configuração real do Worker com D1 local descartável
         run: E2E_RELEASE_LOCAL=1 node --test scripts/staging-http.test.mjs
       - name: Testar migrações SQL SQLite
         run: python3 -m unittest discover -s tests -p 'test_*.py'
@@ -52,17 +52,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Preparar dependências e piloto Svelte no runner de navegador
+      - name: Preparar dependências e aplicativo no runner de navegador
         run: |
           npm ci --ignore-scripts
           npm run build:frontend
-      - name: Smoke test do piloto Svelte em Chrome desktop/mobile
-        run: node --test scripts/browser-svelte-smoke.mjs
+      - name: Smoke test do aplicativo em Chrome desktop/mobile
+        run: node --test scripts/browser-smoke.mjs
       - name: Testar bundle PWA de homologação em Chrome
         run: |
           npm run build:staging
-          PILOT_ROOT=dist/staging node --test scripts/browser-svelte-smoke.mjs
-      - name: Testar pacote final Svelte em Chrome desktop/mobile
+          PILOT_ROOT=dist/staging node --test scripts/browser-smoke.mjs
+      - name: Testar pacote final em Chrome desktop/mobile
         run: |
           npm run build:release
-          PILOT_ROOT=dist/release node --test scripts/browser-svelte-smoke.mjs
+          PILOT_ROOT=dist/release node --test scripts/browser-smoke.mjs

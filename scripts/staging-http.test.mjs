@@ -87,7 +87,7 @@ async function awaitReady(url, proc, output) {
   throw new Error("workerd local não iniciou: " + output().slice(-1500));
 }
 
-test("API real + Svelte no Worker " + (release ? "de produção" : "staging") + " com D1 local efêmero", {
+test("API real + PWA no Worker " + (release ? "de produção" : "staging") + " com D1 local efêmero", {
   timeout: 180000
 }, async () => {
   await lockedConfig();
@@ -233,7 +233,7 @@ test("API real + Svelte no Worker " + (release ? "de produção" : "staging") + 
     assert.equal((await call("/api/saldo", { cookie })).data.saldo_ajustes_minutos, 0);
     assert.equal((await call("/api/sair", { method: "POST", cookie })).response.status, 200);
 
-    console.log("Homologação HTTP local aprovada: Svelte, SW, sessão, 4 batidas, " +
+    console.log("Homologação HTTP local aprovada: PWA, SW, sessão, 4 batidas, " +
       "conflito, correção e ajustes; D1 local efêmero.");
   } finally {
     if (processWorker && processWorker.exitCode === null) {

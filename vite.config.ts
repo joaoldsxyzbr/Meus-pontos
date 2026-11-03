@@ -1,13 +1,13 @@
 import { defineConfig } from "vite";
-import { svelte } from "@sveltejs/vite-plugin-svelte";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   root: "frontend",
-  plugins: [svelte()],
+  plugins: [react()],
   publicDir: false,
-  base: "./",
+  base: "/",
   build: {
-    outDir: "../dist/svelte-pilot",
+    outDir: "../dist/app",
     emptyOutDir: true
   },
   server: { host: "127.0.0.1" }

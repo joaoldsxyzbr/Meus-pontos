@@ -4,17 +4,17 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(".");
-const pilot = path.join(root, "dist/svelte-pilot");
+const pilot = path.join(root, "dist/app");
 const staging = path.join(root, "dist/staging");
 const vite = path.join(root, "node_modules/vite/bin/vite.js");
 
 // A flag é definida somente durante este build, não no piloto de desenvolvimento.
-const result = spawnSync(process.execPath, [vite, "build", "--config", "vite.frontend.config.ts"], {
+const result = spawnSync(process.execPath, [vite, "build", "--config", "vite.config.ts"], {
   cwd: root, stdio: "inherit",
   env: { ...process.env, VITE_STAGING_PWA: "1" }
 });
 if (result.status !== 0 || result.error) {
-  throw new Error("Falha ao compilar o Svelte de homologação.");
+  throw new Error("Falha ao compilar o aplicativo de homologação.");
 }
 
 await rm(staging, { recursive: true, force: true });
@@ -49,7 +49,7 @@ for (const filename of precache.filter(name => name !== "/")) {
   digest.update(filename);
   digest.update(await readFile(path.join(staging, filename.slice(1))));
 }
-const cacheName = "meus-pontos-svelte-" + digest.digest("hex").slice(0, 16);
+const cacheName = "meus-pontos-app-" + digest.digest("hex").slice(0, 16);
 
 const serviceWorker = `// Arquivo gerado automaticamente por scripts/build-staging.mjs.
 const CACHE = ${JSON.stringify(cacheName)};
@@ -60,7 +60,8 @@ self.addEventListener("install", (event) => {
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(caches.keys().then(names => Promise.all(
-    names.filter(name => (name.startsWith("meus-pontos-svelte-") ||
+    names.filter(name => (name.startsWith("meus-pontos-app-") ||
+      name.startsWith("meus-pontos-svelte-") ||
       name.startsWith("meus-pontos-shell-")) && name !== CACHE)
       .map(name => caches.delete(name))
   )).then(() => self.clients.claim()));
