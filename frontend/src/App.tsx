@@ -12,8 +12,9 @@ import { brazilDate } from "./lib/time.ts";
 import Ponto from "./components/Ponto.tsx";
 import Historico from "./components/Historico.tsx";
 import Banco from "./components/Banco.tsx";
+import Visual from "./components/Visual.tsx";
 
-type Tab = "ponto" | "historico" | "saldo";
+type Tab = "ponto" | "historico" | "visual" | "saldo";
 
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -73,7 +74,7 @@ export default function App() {
       if (currentTab === "ponto") {
         const result = await api<TodayResponse>("/api/hoje", { signal: controller.signal, schema: todaySchema });
         if (sequence === requestSequence.current) setDay(result);
-      } else if (currentTab === "historico") {
+      } else if (currentTab === "historico" || currentTab === "visual") {
         const selectedMonth = month;
         const result = await api<HistoryResponse>(
           `/api/historico?mes=${encodeURIComponent(selectedMonth)}`,
@@ -273,6 +274,8 @@ export default function App() {
             notify={notify}
             onError={errorMessage}
           />
+        ) : tab === "visual" ? (
+          <Visual month={month} data={history} loading={loading} changeMonth={changeMonth} />
         ) : (
           <Banco data={balance} loading={loading} changed={afterAdjustments} notify={notify} onError={errorMessage} />
         )}
@@ -299,6 +302,16 @@ export default function App() {
           >
             <span aria-hidden="true">▦</span>
             <span>Histórico</span>
+          </button>
+          <button
+            className={`tab${tab === "visual" ? " active" : ""}`}
+            type="button"
+            data-tab="visual"
+            aria-current={tab === "visual" ? "page" : undefined}
+            onClick={() => chooseTab("visual")}
+          >
+            <span aria-hidden="true">▤</span>
+            <span>Visual</span>
           </button>
           <button
             className={`tab${tab === "saldo" ? " active" : ""}`}

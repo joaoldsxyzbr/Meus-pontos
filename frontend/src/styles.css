@@ -630,7 +630,7 @@ select:focus-visible {
   width: min(100%, var(--container));
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
   border-radius: 22px;
@@ -672,6 +672,82 @@ select:focus-visible {
   color: #ebfffb;
   background: linear-gradient(180deg, rgba(40, 183, 165, 0.2) 0%, rgba(40, 183, 165, 0.08) 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.visual-metrics strong {
+  font-size: 1.35rem;
+}
+
+.chart {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 220px;
+  padding: 6px 0 0;
+}
+
+.chart-bar {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chart-fill {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  border-radius: 4px;
+}
+
+.chart-fill.pos {
+  background: linear-gradient(180deg, #67e2c2 0%, rgba(40, 183, 165, 0.75) 100%);
+  box-shadow: 0 0 12px rgba(103, 226, 194, 0.18);
+}
+
+.chart-fill.neg {
+  background: linear-gradient(180deg, rgba(255, 127, 140, 0.8) 0%, #ff7f8c 100%);
+  box-shadow: 0 0 12px rgba(255, 127, 140, 0.16);
+}
+
+.chart-fill.absent {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 127, 140, 0.5) 0,
+    rgba(255, 127, 140, 0.5) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+.chart-fill.flat {
+  background: rgba(135, 160, 155, 0.35);
+}
+
+.chart-zero {
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  top: 50%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(135, 160, 155, 0.3);
+}
+
+.chart-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -22px;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.card:has(.chart) {
+  padding-bottom: 44px;
 }
 
 .gate {
