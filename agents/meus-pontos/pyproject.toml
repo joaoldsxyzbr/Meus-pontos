@@ -1,0 +1,9 @@
+[project]
+name = "meus-pontos-agent"
+version = "0.1.0"
+description = "Agente gerenciado no Mistral Studio para o sistema de controle de ponto Meus-pontos (Cloudflare D1)"
+requires-python = ">=3.12"
+dependencies = ["mistralai-agents"]
+
+[tool.mistralai.agents]
+entrypoint = "main:agent"
